@@ -593,6 +593,72 @@ export const createFranchiseProduct = async (req: any, res: Response) => {
   }
 }
 
+export const createFranchiseTerritory = async (req: any, res: Response) => {
+  const { type, code, name, state } = req.body || {}
+  if (!['state', 'district_city', 'pincode'].includes(type) || !code || !name || !state) {
+    return res.status(400).json({
+      success: false,
+      message: 'Type, code, name, and state are required',
+    })
+  }
+
+  const district = String(req.body.district || '').trim() || null
+  const city = String(req.body.city || '').trim() || null
+  const pincode = String(req.body.pincode || '').trim() || null
+
+  if (type === 'district_city' && !district && !city) {
+    return res.status(400).json({
+      success: false,
+      message: 'District or city is required for a district / city territory',
+    })
+  }
+  if (type === 'pincode' && (!pincode || !/^\d{6}$/.test(pincode))) {
+    return res.status(400).json({
+      success: false,
+      message: 'A valid 6-digit pincode is required for a pincode territory',
+    })
+  }
+
+  try {
+    const [territory] = await db
+      .insert(franchiseGeoUnits)
+      .values({
+        type,
+        code: String(code).trim().toUpperCase(),
+        name: String(name).trim(),
+        pincode: type === 'pincode' ? pincode : null,
+        state: String(state).trim(),
+        district: type === 'state' ? null : district || city,
+        city: type === 'state' ? null : city || district,
+        mappingVersion: Math.max(1, Number(req.body.mappingVersion || 1)),
+        status: 'available',
+        metadata: req.body.metadata && typeof req.body.metadata === 'object'
+          ? req.body.metadata
+          : {},
+      })
+      .returning()
+
+    await recordAudit(
+      req.user?.sub,
+      req,
+      'territory.create',
+      'franchise_geo_unit',
+      territory.id,
+      null,
+      null,
+      territory,
+    )
+    return res.status(201).json({ success: true, data: territory })
+  } catch (error: any) {
+    return res.status(error?.code === '23505' ? 409 : 500).json({
+      success: false,
+      message: error?.code === '23505'
+        ? 'Territory code already exists'
+        : 'Unable to create territory',
+    })
+  }
+}
+
 export const listFranchiseTerritories = async (req: Request, res: Response) => {
   const catalog = await getFranchiseTerritoryCatalog()
   const states = catalog.filter((entry) => entry.type === 'state')

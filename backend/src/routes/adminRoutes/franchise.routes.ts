@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
   createFranchiseProduct,
+  createFranchiseTerritory,
   createFranchiseRule,
   getFranchiseAdminOverview,
   getFranchiseReportsAdmin,
@@ -29,6 +30,7 @@ router.patch('/applications/:id/action', updateFranchiseApplication)
 router.get('/products', listFranchiseProducts)
 router.post('/products', createFranchiseProduct)
 router.get('/territories', listFranchiseTerritories)
+router.post('/territories', createFranchiseTerritory)
 router.get('/territories/:id/details', getFranchiseTerritoryDetails)
 router.get('/franchises', listFranchiseOrganizations)
 router.get('/agreements', listFranchiseAgreements)

@@ -12,6 +12,8 @@ export const franchiseService = {
   createProduct: async (payload) => (await api.post(`${base}/products`, payload)).data.data,
   listTerritories: async (params = {}) =>
     (await api.get(`${base}/territories`, { params })).data.data,
+  createTerritory: async (payload) =>
+    (await api.post(`${base}/territories`, payload)).data.data,
   getTerritoryDetails: async (id) =>
     (await api.get(`${base}/territories/${id}/details`)).data.data,
   listFranchises: async () => (await api.get(`${base}/franchises`)).data.data,

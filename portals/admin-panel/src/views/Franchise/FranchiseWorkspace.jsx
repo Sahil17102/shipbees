@@ -1516,6 +1516,116 @@ const ProductModal = ({ isOpen, onClose, onSaved }) => {
   )
 }
 
+const TerritoryModal = ({ isOpen, onClose, onSaved }) => {
+  const toast = useToast()
+  const [saving, setSaving] = useState(false)
+  const initialForm = {
+    type: 'state',
+    code: '',
+    name: '',
+    state: '',
+    district: '',
+    city: '',
+    pincode: '',
+    mappingVersion: 1,
+  }
+  const [form, setForm] = useState(initialForm)
+
+  useEffect(() => {
+    if (isOpen) setForm(initialForm)
+  }, [isOpen])
+
+  const field = (key) => ({
+    value: form[key],
+    onChange: (event) => setForm((current) => ({ ...current, [key]: event.target.value })),
+  })
+
+  const submit = async () => {
+    setSaving(true)
+    try {
+      await franchiseService.createTerritory(form)
+      toast({ title: 'Available territory created', status: 'success', duration: 3000 })
+      onSaved()
+      onClose()
+    } catch (error) {
+      toast({
+        title: 'Unable to create territory',
+        description: error.response?.data?.message || 'Check the territory details.',
+        status: 'error',
+        duration: 4000,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+      <ModalOverlay />
+      <ModalContent borderRadius="8px">
+        <ModalHeader>Add available territory</ModalHeader>
+        <ModalCloseButton />
+        <ModalBody>
+          <Text mb={4} color="#68666F" fontSize="sm">
+            This territory becomes selectable on the public franchise application page when a
+            pricing plan with the same tier is active.
+          </Text>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <FormControl isRequired>
+              <FormLabel>Territory tier</FormLabel>
+              <Select {...field('type')}>
+                <option value="state">State</option>
+                <option value="district_city">District / City</option>
+                <option value="pincode">Pincode</option>
+              </Select>
+            </FormControl>
+            <FormControl isRequired>
+              <FormLabel>Territory code</FormLabel>
+              <Input {...field('code')} placeholder="DELHI_STATE" />
+            </FormControl>
+            <FormControl isRequired>
+              <FormLabel>Display name</FormLabel>
+              <Input {...field('name')} placeholder="Delhi" />
+            </FormControl>
+            <FormControl isRequired>
+              <FormLabel>State</FormLabel>
+              <Input {...field('state')} placeholder="Delhi" />
+            </FormControl>
+            {form.type !== 'state' && (
+              <FormControl isRequired={form.type === 'district_city'}>
+                <FormLabel>District</FormLabel>
+                <Input {...field('district')} placeholder="Central Delhi" />
+              </FormControl>
+            )}
+            {form.type !== 'state' && (
+              <FormControl>
+                <FormLabel>City</FormLabel>
+                <Input {...field('city')} placeholder="New Delhi" />
+              </FormControl>
+            )}
+            {form.type === 'pincode' && (
+              <FormControl isRequired>
+                <FormLabel>Pincode</FormLabel>
+                <Input {...field('pincode')} inputMode="numeric" maxLength={6} placeholder="110001" />
+              </FormControl>
+            )}
+            <FormControl>
+              <FormLabel>Mapping version</FormLabel>
+              <Input type="number" min={1} {...field('mappingVersion')} />
+            </FormControl>
+          </SimpleGrid>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="ghost" mr={3} onClick={onClose}>Cancel</Button>
+          <Button bg="#6B50F6" color="white" onClick={submit} isLoading={saving}>
+            Add territory
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  )
+}
+
 const RuleModal = ({ isOpen, onClose, onSaved }) => {
   const toast = useToast()
   const [saving, setSaving] = useState(false)
@@ -1798,7 +1908,7 @@ const FranchiseWorkspace = ({ mode: initialMode, modes = [], workspace }) => {
   }, [load])
 
   const action =
-    mode === 'products' || mode === 'rules' ? (
+    mode === 'products' || mode === 'territories' || mode === 'rules' ? (
       <Button
         leftIcon={<IconPlus size={17} />}
         h="42px"
@@ -1808,7 +1918,11 @@ const FranchiseWorkspace = ({ mode: initialMode, modes = [], workspace }) => {
         onClick={modal.onOpen}
         _hover={{ bg: '#553ADF' }}
       >
-        {mode === 'products' ? 'New pricing plan' : 'New rule version'}
+        {mode === 'products'
+          ? 'New pricing plan'
+          : mode === 'territories'
+            ? 'Add territory'
+            : 'New rule version'}
       </Button>
     ) : (
       <Button
@@ -1994,6 +2108,9 @@ const FranchiseWorkspace = ({ mode: initialMode, modes = [], workspace }) => {
       <Box mt={4}>{renderContent()}</Box>
       {mode === 'products' && (
         <ProductModal isOpen={modal.isOpen} onClose={modal.onClose} onSaved={load} />
+      )}
+      {mode === 'territories' && (
+        <TerritoryModal isOpen={modal.isOpen} onClose={modal.onClose} onSaved={load} />
       )}
       {mode === 'rules' && (
         <RuleModal isOpen={modal.isOpen} onClose={modal.onClose} onSaved={load} />
