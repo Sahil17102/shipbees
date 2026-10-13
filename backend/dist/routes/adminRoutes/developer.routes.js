@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const developer_controller_1 = require("../../controllers/admin/developer.controller");
+const isAdmin_1 = require("../../middlewares/isAdmin");
+const requireAuth_1 = require("../../middlewares/requireAuth");
+const router = (0, express_1.Router)();
+router.get('/error-logs', requireAuth_1.requireAuth, isAdmin_1.isAdminMiddleware, developer_controller_1.getDeveloperErrorLogsController);
+router.get('/live-logs', requireAuth_1.requireAuth, isAdmin_1.isAdminMiddleware, developer_controller_1.getDeveloperLiveLogsController);
+router.get('/shopify-oauth-credentials', requireAuth_1.requireAuth, isAdmin_1.isAdminMiddleware, developer_controller_1.getShopifyOAuthCredentialsController);
+router.put('/shopify-oauth-credentials', requireAuth_1.requireAuth, isAdmin_1.isAdminMiddleware, developer_controller_1.updateShopifyOAuthCredentialsController);
+router.patch('/issues/:issueKey', requireAuth_1.requireAuth, isAdmin_1.isAdminMiddleware, developer_controller_1.updateDeveloperIssueStateController);
+router.post('/retry-manifest', requireAuth_1.requireAuth, isAdmin_1.isAdminMiddleware, developer_controller_1.retryDeveloperManifestController);
+router.post('/trigger-shadowfax-webhook', requireAuth_1.requireAuth, isAdmin_1.isAdminMiddleware, developer_controller_1.triggerShadowfaxWebhookTestController);
+exports.default = router;

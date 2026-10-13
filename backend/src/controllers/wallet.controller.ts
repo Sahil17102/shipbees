@@ -1,0 +1,90 @@
+import { Request, Response } from 'express'
+import { eq } from 'drizzle-orm'
+import { db } from '../models/client'
+import { users } from '../models/schema/users'
+import { wallets } from '../models/schema/wallet'
+import { getUserWalletTransactions } from '../models/services/wallet.service'
+import { getOrCreateWalletOfUser } from '../models/services/walletTopupService'
+import { getMerchantUserIdFromRequest, resolveMerchantUserId } from '../utils/merchantContext'
+import { parseWalletTransactionCategory } from '../utils/walletTransactionCategory'
+
+export const getUserWalletBalance = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const sessionUserId = getMerchantUserIdFromRequest(req)
+    if (!sessionUserId) return res.status(401).json({ error: 'Unauthorized' })
+
+    const userId = await resolveMerchantUserId(sessionUserId)
+
+    const [userRecord] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1)
+    const [walletRecord] = await db
+      .select({ id: wallets.id, userId: wallets.userId, balance: wallets.balance })
+      .from(wallets)
+      .where(eq(wallets.userId, userId))
+      .limit(1)
+
+    if (!userRecord) {
+      return res.status(401).json({ error: 'User not found for this session. Please log in again.' })
+    }
+
+    console.log('Wallet balance lookup debug:', {
+      tokenSub: (req as any).user?.actorSub || (req as any).user?.sub || null,
+      merchantUserId: userId,
+      userExists: Boolean(userRecord),
+      walletExistsForMerchant: Boolean(walletRecord),
+      walletId: walletRecord?.id ?? null,
+    })
+
+    const balance = await getOrCreateWalletOfUser(userId)
+
+    res.status(200).json({ message: 'success', data: { ...balance } })
+  } catch (error: any) {
+    if (String(error?.message || '').includes('User not found for wallet lookup')) {
+      return res.status(401).json({ error: 'User not found for this session. Please log in again.' })
+    }
+
+    console.error('Wallet balance error:', error)
+    res.status(404).json({ error: 'Wallet not found' })
+  }
+}
+
+export const getWalletTransactionsController = async (req: any, res: Response) => {
+  try {
+    const sessionUserId = getMerchantUserIdFromRequest(req)
+    if (!sessionUserId) return res.status(401).json({ message: 'Unauthorized' })
+
+    const userId = await resolveMerchantUserId(sessionUserId)
+
+    const {
+      limit = 50,
+      page = 1,
+      type, // 'credit' | 'debit'
+      dateFrom, // ISO string
+      dateTo, // ISO string
+      category,
+      search,
+    } = req.query
+
+    const parsedCategory = parseWalletTransactionCategory(category)
+    if (category && !parsedCategory) {
+      return res.status(400).json({ message: 'Invalid wallet transaction category' })
+    }
+
+    const offset = (Number(page) - 1) * Number(limit)
+
+    const transactions = await getUserWalletTransactions({
+      userId,
+      limit: Number(limit),
+      offset,
+      type: type as 'credit' | 'debit' | undefined,
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      category: parsedCategory,
+      search: typeof search === 'string' ? search : undefined,
+    })
+
+    return res.status(200).json(transactions)
+  } catch (err: any) {
+    console.error('Error fetching wallet transactions:', err)
+    return res.status(500).json({ message: 'Something went wrong', error: err.message })
+  }
+}

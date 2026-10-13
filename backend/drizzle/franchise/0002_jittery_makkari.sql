@@ -1,0 +1,2 @@
+ALTER TABLE "shipray_franchise_applications" ADD COLUMN "source" varchar(40) DEFAULT 'admin' NOT NULL;--> statement-breakpoint
+ALTER TABLE "shipray_franchise_applications" ADD COLUMN "application_data" jsonb DEFAULT '{}'::jsonb NOT NULL;

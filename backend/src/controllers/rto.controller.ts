@@ -1,0 +1,74 @@
+import { Request, Response } from 'express'
+import { adminRtoExport, adminRtoKpis, listRtoEvents, listRtoEventsAdmin } from '../models/services/rto.service'
+
+export const getMyRtoEvents = async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.sub
+    const { orderId, page, limit, search, fromDate, toDate } = req.query as any
+    const p = Number(page) || 1
+    const l = Math.min(Number(limit) || 20, 200)
+    const { rows, totalCount } = await listRtoEvents(userId, orderId, {
+      courier: req.query.courier || undefined,
+      page: p,
+      limit: l,
+      search: search || '',
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+    })
+    res.json({ success: true, data: rows, totalCount })
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+export const getAdminRtoEvents = async (req: any, res: Response) => {
+  try {
+    const { orderId, page, limit, search, fromDate, toDate } = req.query as any
+    const p = Number(page) || 1
+    const l = Math.min(Number(limit) || 20, 200)
+    const { rows, totalCount } = await listRtoEventsAdmin(orderId, {
+      userId: req.query.userId || undefined,
+      courier: req.query.courier || undefined,
+      page: p,
+      limit: l,
+      search: search || '',
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+    })
+    res.json({ success: true, data: rows, totalCount })
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+export const exportAdminRto = async (req: Request, res: Response) => {
+  try {
+    const { search, fromDate, toDate } = req.query as any
+    const csv = await adminRtoExport({ search: search || '', fromDate, toDate, userId: req.query.userId as string || undefined, courier: req.query.courier as string || undefined })
+    const ts = new Date().toISOString().split('T')[0]
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="rto_export_${ts}.csv"`)
+    res.status(200).send(csv)
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+export const getAdminRtoKpis = async (req: Request, res: Response) => {
+  try {
+    const { search, fromDate, toDate } = req.query as any
+    const data = await adminRtoKpis({ search: search || '', fromDate, toDate, userId: req.query.userId as string || undefined, courier: req.query.courier as string || undefined })
+    res.json({ success: true, data })
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+export const exportMyRto = async (req: any, res: Response) => {
+  try {
+    const csv = await adminRtoExport({ userId: req.user.sub, search: req.query.search, fromDate: req.query.fromDate, toDate: req.query.toDate, courier: req.query.courier })
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="rto-report.csv"')
+    res.send(csv)
+  } catch (error: any) { res.status(400).json({ message: error.message }) }
+}
