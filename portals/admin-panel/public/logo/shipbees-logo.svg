@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 310" role="img" aria-labelledby="title desc">
+  <title id="title">ShipBees</title>
+  <desc id="desc">ShipBees bee and infinity logo with People, Parcels, Progress tagline</desc>
+  <g fill="none" stroke="#ffbf24" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M258 123C216 75 165 35 111 39 64 42 40 78 54 112c17 42 68 43 107 14 31-23 59-54 88-82"/>
+    <path d="M262 123c42-48 93-88 147-84 47 3 71 39 57 73-17 42-68 43-107 14-31-23-59-54-88-82"/>
+    <path d="M53 112 160 49l103 77L364 50l104 62"/>
+  </g>
+  <g fill="#080d12" stroke="#080d12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M224 61c9-14 23-22 38-22s29 8 38 22l-38 42z" stroke-width="7" fill="none"/>
+    <path d="M229 101l33-31 33 31-33 33z" stroke-width="7"/>
+    <path d="M244 43c-4-17-13-25-26-31" fill="none" stroke-width="8"/>
+    <path d="M280 43c4-17 13-25 26-31" fill="none" stroke-width="8"/>
+    <circle cx="216" cy="10" r="8" stroke="none"/><circle cx="308" cy="10" r="8" stroke="none"/>
+    <path d="M239 111 201 151l26 18 35-35z" stroke-width="3"/><path d="M285 111l38 40-26 18-35-35z" stroke-width="3"/>
+  </g>
+  <text x="260" y="238" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="85" font-weight="900" letter-spacing="-4"><tspan fill="#080d12">Ship</tspan><tspan fill="#ffbf24">Bees</tspan></text>
+  <text x="260" y="283" text-anchor="middle" fill="#080d12" font-family="Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="6">PEOPLE • PARCELS • PROGRESS</text>
+</svg>

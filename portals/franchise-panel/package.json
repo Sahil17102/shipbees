@@ -1,0 +1,23 @@
+{
+  "name": "shipray-franchise-portal",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5177",
+    "build": "vite build",
+    "preview": "vite preview --port 4177"
+  },
+  "dependencies": {
+    "@fontsource/open-sans": "^5.2.6",
+    "@fontsource/raleway": "^5.2.6",
+    "axios": "^1.11.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.3.5"
+  }
+}
