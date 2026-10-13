@@ -1,5 +1,13 @@
 import { sql } from 'drizzle-orm'
-import { boolean, integer, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+import { boolean, integer, pgSequence, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+
+export const shiprayUserPublicIdSequence = pgSequence('shipray_user_public_id_seq', {
+  startWith: 1000,
+  increment: 1,
+  minValue: 1000,
+  maxValue: 99999,
+  cycle: false,
+})
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
