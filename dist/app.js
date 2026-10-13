@@ -48,7 +48,17 @@ const storyFan = () => `<section class="story-section"><div class="shell story-h
 
 const home = () => `${nav()}<main>
 <section class="hero"><div class="shell hero-grid"><div><span class="eyebrow">Built for growing online brands</span><h1>Every parcel.<br><span>Perfectly in motion.</span></h1><p>Bring orders, courier choices, dispatch and customer updates into one calm shipping workspace.</p><div class="hero-actions"><a class="btn btn-primary" href="/rate-calculator">Find my shipping rate →</a><a class="btn btn-light" href="/tracking">⌖ Track a parcel</a></div><div class="trust-note"><b>✓</b> Start free · Scale at your own pace</div></div>
-<div class="hero-visual"><div class="map-card"><div class="parcel p1">📦</div><div class="parcel p2">📦</div><div class="pin pin1">●</div><div class="pin pin2">●</div><div class="van">🚚</div><div class="hub">SHIP<br>BEES</div></div><div class="float-stat stat-a"><small>Dispatch queue</small><strong>84 packed <span style="color:#0f9d91">↑ 12%</span></strong></div><div class="float-stat stat-b"><small>On-time trend</small><strong>97.4%</strong></div></div></div></section>
+<div class="hero-visual hero-carousel" id="heroCarousel" aria-label="ShipBees logistics platform scenes">
+  <div class="hero-stage">
+    <article class="hero-slide active" data-scene="Dispatch control" aria-hidden="false"><img src="/assets/hero-dispatch-3d.png" alt="3D dispatch hub with parcels, route pins and a delivery van"><div class="scene-chip scene-chip-top"><small>Dispatch queue</small><strong>84 ready <span>+12%</span></strong></div><div class="scene-chip scene-chip-bottom"><small>Handover status</small><strong>Pickup ready</strong></div></article>
+    <article class="hero-slide" data-scene="Global routes" aria-hidden="true"><img src="/assets/hero-global-3d.png" alt="3D global logistics network with airplane, cargo ship and route pins"><div class="scene-chip scene-chip-top"><small>Route canvas</small><strong>Global planning</strong></div><div class="scene-chip scene-chip-bottom"><small>Network mode</small><strong>Air + surface</strong></div></article>
+    <article class="hero-slide" data-scene="Smart routing" aria-hidden="true"><img src="/assets/hero-routing-3d.png" alt="3D smart route network with live paths and analytics"><div class="scene-chip scene-chip-top"><small>Route signals</small><strong>Live comparison</strong></div><div class="scene-chip scene-chip-bottom"><small>Decision view</small><strong>Best fit found</strong></div></article>
+    <article class="hero-slide" data-scene="Fulfilment flow" aria-hidden="true"><img src="/assets/hero-warehouse-3d.png" alt="3D automated warehouse with conveyors and packed parcels"><div class="scene-chip scene-chip-top"><small>Fulfilment flow</small><strong>Orders moving</strong></div><div class="scene-chip scene-chip-bottom"><small>Warehouse status</small><strong>Ready to load</strong></div></article>
+    <div class="hero-glow" aria-hidden="true"></div><div class="hero-ring ring-one" aria-hidden="true"></div><div class="hero-ring ring-two" aria-hidden="true"></div>
+  </div>
+  <div class="hero-carousel-controls"><button class="hero-arrow" id="heroPrev" type="button" aria-label="Previous scene">←</button><div class="hero-progress" role="tablist" aria-label="Choose a hero scene"><button class="active" type="button" data-hero-slide="0" role="tab" aria-selected="true" aria-label="Dispatch control"></button><button type="button" data-hero-slide="1" role="tab" aria-selected="false" aria-label="Global routes"></button><button type="button" data-hero-slide="2" role="tab" aria-selected="false" aria-label="Smart routing"></button><button type="button" data-hero-slide="3" role="tab" aria-selected="false" aria-label="Fulfilment flow"></button></div><button class="hero-arrow" id="heroNext" type="button" aria-label="Next scene">→</button></div>
+  <div class="hero-scene-label"><span id="heroSceneNumber">01</span><strong id="heroSceneTitle">Dispatch control</strong></div>
+</div></div></section>
 <section class="logo-strip"><div class="shell logo-line"><small>MADE FOR THE WAY INDIA SELLS</small><span>Shopify</span><span>WooCommerce</span><span>Amazon</span><span>Flipkart</span><span>Custom Store</span></div></section>
 ${stackSection()}
 ${featureSection('ONE SHIPPING DESK','Less juggling. More delivering.',[['⌘','One dispatch queue','Pull orders into a single, tidy workflow and prepare every parcel with fewer repeated steps.','/integrations/sales-channels'],['⇄','A flexible carrier mix','Match cost, route and urgency across multiple delivery partners—without getting boxed in.','/integrations/courier-partners'],['◎','Updates people understand','Give customers a clean delivery timeline while your team spots exceptions early.','/tracking']])}
@@ -87,6 +97,36 @@ const path=location.pathname.replace(/\/$/,'')||'/';
 $('#app').innerHTML=(routes[path]||notFound)();
 
 $('.menu-btn')?.addEventListener('click',()=>$('#siteNav').classList.toggle('mobile-open'));
+
+const heroCarousel=$('#heroCarousel');
+if(heroCarousel){
+  const slides=$$('.hero-slide',heroCarousel),dots=$$('[data-hero-slide]',heroCarousel),stage=$('.hero-stage',heroCarousel),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let current=0,timer=0,pressX=null;
+  const paint=(next)=>{
+    next=(next+slides.length)%slides.length;
+    if(next===current)return;
+    const previous=slides[current];
+    previous.classList.remove('active');previous.classList.add('exit-left');previous.setAttribute('aria-hidden','true');
+    setTimeout(()=>previous.classList.remove('exit-left'),900);
+    current=next;
+    slides.forEach((slide,index)=>{const active=index===current;slide.classList.toggle('active',active);slide.setAttribute('aria-hidden',String(!active))});
+    dots.forEach((dot,index)=>{const active=index===current;dot.classList.toggle('active',active);dot.setAttribute('aria-selected',String(active))});
+    $('#heroSceneNumber').textContent=String(current+1).padStart(2,'0');
+    $('#heroSceneTitle').textContent=slides[current].dataset.scene;
+  };
+  const restart=()=>{clearInterval(timer);if(!reduced)timer=setInterval(()=>paint(current+1),5000)};
+  $('#heroPrev').addEventListener('click',()=>{paint(current-1);restart()});
+  $('#heroNext').addEventListener('click',()=>{paint(current+1);restart()});
+  dots.forEach(dot=>dot.addEventListener('click',()=>{paint(Number(dot.dataset.heroSlide));restart()}));
+  heroCarousel.addEventListener('mouseenter',()=>{clearInterval(timer);heroCarousel.classList.add('is-paused')});
+  heroCarousel.addEventListener('mouseleave',()=>{heroCarousel.classList.remove('is-paused');stage.style.setProperty('--tilt-x','0deg');stage.style.setProperty('--tilt-y','0deg');heroCarousel.style.setProperty('--scene-x','0px');heroCarousel.style.setProperty('--scene-y','0px');restart()});
+  heroCarousel.addEventListener('pointermove',e=>{if(e.pointerType==='touch')return;const r=stage.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;stage.style.setProperty('--tilt-x',`${(-y*7).toFixed(2)}deg`);stage.style.setProperty('--tilt-y',`${(x*9).toFixed(2)}deg`);heroCarousel.style.setProperty('--scene-x',`${(x*24).toFixed(1)}px`);heroCarousel.style.setProperty('--scene-y',`${(y*18).toFixed(1)}px`)});
+  heroCarousel.addEventListener('pointerdown',e=>{pressX=e.clientX;heroCarousel.setPointerCapture?.(e.pointerId)});
+  heroCarousel.addEventListener('pointerup',e=>{if(pressX!==null&&Math.abs(e.clientX-pressX)>45){paint(current+(e.clientX<pressX?1:-1));restart()}pressX=null;heroCarousel.releasePointerCapture?.(e.pointerId)});
+  heroCarousel.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){paint(current+1);restart()}if(e.key==='ArrowLeft'){paint(current-1);restart()}});
+  restart();
+}
+
 $$('.segmented').forEach(seg=>seg.addEventListener('click',e=>{if(e.target.tagName!=='BUTTON')return;$$('button',seg).forEach(b=>b.classList.remove('active'));e.target.classList.add('active');if(seg.dataset.seg==='route')$('#formula').textContent=`Formula: L × W × H ÷ ${e.target.dataset.value==='domestic'?'5,000':'4,500'}`;}));
 
 const toolCopy={book:['SMART DISPATCH','Move packed orders without the busywork.','Review shipment details, compare a sensible service, and keep the handoff organised from the same workspace.','Estimate a route →','/rate-calculator'],watch:['LIVE MOMENTS','See trouble before customers feel it.','Follow every important scan in a readable timeline and bring delayed movement to the surface sooner.','Track a parcel →','/tracking'],learn:['BETTER DECISIONS','Turn everyday shipping into useful insight.','Notice patterns in cost, routes and exceptions so tomorrow’s courier choice is more informed.','Read field notes →','/blogs']};
