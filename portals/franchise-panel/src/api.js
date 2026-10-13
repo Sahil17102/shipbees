@@ -82,6 +82,9 @@ api.interceptors.response.use(
 const franchiseBase = '/franchise/v1'
 
 export const portalApi = {
+  opportunities: async () => (await api.get(`${franchiseBase}/opportunities`)).data.data,
+  submitApplication: async (payload) =>
+    (await api.post(`${franchiseBase}/applications`, payload)).data,
   login: async (email, password) =>
     (await api.post(`${franchiseBase}/auth/login`, { email, password })).data,
   me: async () => (await api.get(`${franchiseBase}/me`)).data.data,

@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { authStorage, portalApi } from './api'
+import FranchiseApplication from './FranchiseApplication'
 
 const navItems = [
   { path: '/overview', label: 'Overview', icon: LayoutDashboard },
@@ -179,6 +180,12 @@ function Login({ onLogin, navigate }) {
               {loading ? <LoaderCircle className="spin" size={18} /> : <>Sign in to portal <ArrowRight size={18} /></>}
             </button>
           </form>
+          <div className="apply-cta">
+            <span>Interested in joining the ShipBees network?</span>
+            <button type="button" onClick={() => navigate('/apply')}>
+              Apply for a franchise <ArrowRight size={15} />
+            </button>
+          </div>
           <div className="login-trust">
             <ShieldCheck size={17} />
             <span>Organization-scoped access</span>
@@ -1177,7 +1184,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!loggedIn && path !== '/login') navigate('/login', true)
+    if (!loggedIn && !['/login', '/apply'].includes(path)) navigate('/login', true)
     if (loggedIn && (path === '/login' || !pageCopy[path])) navigate('/overview', true)
   }, [loggedIn, navigate, path])
 
@@ -1187,6 +1194,7 @@ export default function App() {
     navigate('/login', true)
   }
 
+  if (!loggedIn && path === '/apply') return <FranchiseApplication navigate={navigate} />
   if (!loggedIn) return <Login onLogin={setProfile} navigate={navigate} />
 
   return <PortalShell profile={profile} onLogout={logout} path={path} navigate={navigate} />
