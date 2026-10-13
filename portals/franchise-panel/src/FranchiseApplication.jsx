@@ -129,6 +129,13 @@ export default function FranchiseApplication({ navigate }) {
       setApplicationNumber(reference)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
+      const existingReference = error.response?.data?.applicationNumber
+      if (existingReference) {
+        saveApplication(existingReference, form)
+        setApplicationNumber(existingReference)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
       setSubmitError(error.response?.data?.message || 'Application could not be submitted.')
     } finally {
       setSubmitting(false)
@@ -233,12 +240,13 @@ export default function FranchiseApplication({ navigate }) {
             <div className="application-unavailable">
               <CheckCircle2 size={22} />
               <div>
-                <strong>Published territory applications are currently under review.</strong>
+                <strong>Published territories are currently assigned or under review.</strong>
                 <p>
                   If you already submitted an application, it is safely recorded in the ShipBees
-                  review queue. Your reference confirmation will remain visible on the device used
-                  to submit future applications. New applications will reopen when another
-                  territory becomes available.
+                  system. Use Partner login if your account has been activated. Reference
+                  confirmation will remain visible on the device used to submit future
+                  applications, and new applications will reopen when another territory becomes
+                  available.
                 </p>
               </div>
             </div>
