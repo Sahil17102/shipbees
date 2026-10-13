@@ -18,6 +18,18 @@
 
 @media(prefers-reduced-motion:reduce){.story-card{transition:none!important}.story-cursor{display:none}.story-fan.is-visible .story-card{transform:translate(calc(-50% + var(--x)),var(--y)) rotate(var(--r))}}
 
+/* Scroll choreography: the cards begin as a Cuberto-style fan, then resolve into a clean 3+2 grid. */
+.story-section{min-height:1880px;padding-bottom:0}
+.story-fan{position:sticky;top:86px;height:950px;margin-top:58px}
+.story-card{width:368px;min-height:420px;opacity:0;transition:opacity .55s ease,box-shadow .25s ease;transition-delay:var(--delay)}
+.story-fan.is-visible .story-card{opacity:1}
+.story-fan.is-visible .story-card:hover{transform:inherit}
+.story-fan.is-grid .story-card{box-shadow:0 12px 35px rgba(17,28,46,.08)}
+.story-fan:after{content:"SCROLL TO ORGANISE";position:absolute;right:16px;bottom:22px;font-size:.7rem;font-weight:800;letter-spacing:.13em;color:#8b94a1;opacity:calc(1 - var(--fan-progress,0));transition:opacity .2s}
+@media(max-width:900px) and (min-width:601px){.story-fan{transform:scale(.78);transform-origin:50% 0;width:1180px;left:50%;margin-left:-590px}.story-section{min-height:1650px}}
+@media(max-width:600px){.story-section{min-height:auto;padding-bottom:70px}.story-fan{position:relative;top:auto;width:100%;height:2070px;left:auto;margin:35px auto 0;transform:none}.story-card{width:min(350px,calc(100vw - 34px));min-height:385px}.story-hint{margin-top:0}.story-fan:after{display:none}}
+@media(prefers-reduced-motion:reduce){.story-section{min-height:auto}.story-fan{position:relative;top:auto}.story-card{transition:none}}
+
 /* Typography matched to the approved reference: Manrope display + DM Sans interface. */
 body,button,input,select,textarea{font-family:"DM Sans",sans-serif}
 h1,h2,h3,h4,.price,.impact-grid strong{font-family:Manrope,sans-serif}
