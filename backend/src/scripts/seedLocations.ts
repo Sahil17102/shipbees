@@ -2,7 +2,8 @@
 import fs from 'fs'
 import path from 'path'
 import XLSX from 'xlsx'
-import { db } from '../models/client'
+import { sql } from 'drizzle-orm'
+import { db, pool } from '../models/client'
 import { locations } from '../schema/schema'
 
 const DATA_DIR = path.resolve('src/scripts/data')
@@ -81,6 +82,13 @@ async function importXlsx(filename: string) {
   }
   console.log('📂 Reading XLSX:', fullPath)
 
+  // Older production databases can predate the schema-level unique index.
+  // The importer relies on it for safe, idempotent retries.
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS shipray_locations_pincode_unique
+    ON shipray_locations (pincode)
+  `)
+
   const wb = XLSX.readFile(fullPath)
   const sheet = wb.Sheets[wb.SheetNames[0]]
   const jsonRows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' })
@@ -123,7 +131,13 @@ async function importXlsx(filename: string) {
   try {
     await importXlsx(arg)
   } catch (err) {
-    console.error('Import failed:', (err as Error).message)
+    const error = err as Error & { code?: string; cause?: { message?: string; code?: string } }
+    console.error('Import failed:', {
+      message: error.cause?.message || error.message,
+      code: error.cause?.code || error.code,
+    })
     process.exitCode = 1
+  } finally {
+    await pool.end()
   }
 })()
