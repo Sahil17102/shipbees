@@ -33,6 +33,7 @@
     "approve:merchant": "ts-node src/scripts/approveMerchantAccount.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "drizzle-kit push",
+    "verify:schema": "tsx src/scripts/verifyDatabaseSchema.ts",
     "migrate:franchise": "drizzle-kit migrate --config drizzle.franchise.config.ts",
     "migrate:features": "tsx src/scripts/applyFeatureMigrations.ts",
     "migrate:manual-couriers": "tsx src/scripts/applyFeatureMigrations.ts --only=20260731_001_manual_courier_network.sql",

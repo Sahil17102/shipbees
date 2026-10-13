@@ -20,10 +20,15 @@ const databaseUrl = process.env.DATABASE_URL
 const isLocalDatabaseUrl = /^postgres(?:ql)?:\/\/[^@]+@(?:127\.0\.0\.1|localhost)(?::\d+)?\//i.test(
   databaseUrl,
 )
+const databaseHost = new URL(databaseUrl).hostname
+const isRenderInternalDatabase = /^dpg-[a-z0-9-]+$/i.test(databaseHost)
 
 const poolConfig = {
   connectionString: databaseUrl,
-  ssl: env === 'production' && !isLocalDatabaseUrl ? { rejectUnauthorized: false } : false,
+  ssl:
+    env === 'production' && !isLocalDatabaseUrl && !isRenderInternalDatabase
+      ? { rejectUnauthorized: false }
+      : false,
   max: Number(process.env.PG_POOL_MAX || 10),
   idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 30000),
   connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS || 10000),
