@@ -1,5 +1,6 @@
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+const USER_PANEL_LOGIN = 'https://shipbees-client.onrender.com/login';
 
 const nav = () => `
 <header class="nav" id="siteNav"><div class="shell nav-inner">
@@ -13,7 +14,7 @@ const nav = () => `
     </div></div>
     <a href="/platform">Platform</a><a href="/pricing">Pricing</a><a href="/carriers">Carriers</a><a href="/learn">Learn</a>
   </nav>
-  <div class="nav-actions"><a class="btn btn-light" href="/login">Log in</a><a class="btn btn-primary" href="/rate-calculator">Get a quote <span>→</span></a></div>
+  <div class="nav-actions"><a class="btn btn-light" href="${USER_PANEL_LOGIN}">Log in</a><a class="btn btn-primary" href="/rate-calculator">Get a quote <span>→</span></a></div>
   <button class="menu-btn" type="button" aria-label="Open menu">☰</button>
 </div></header>`;
 
@@ -23,7 +24,7 @@ const footer = () => `
   <div><a class="brand logo-link footer-logo-link" href="/" aria-label="ShipBees home"><img class="brand-logo footer-logo" src="/assets/shipbees-logo.svg" alt="ShipBees — People, Parcels, Progress"></a><p>A practical delivery workspace for ambitious online sellers—from packed box to happy doorstep.</p></div>
   <div><h4>Plan</h4><a href="/weight-calculator">Weight checker</a><a href="/rate-calculator">Rate finder</a></div>
   <div><h4>Connect</h4><a href="/integrations/sales-channels">Sales channels</a><a href="/integrations/courier-partners">Delivery network</a></div>
-  <div><h4>Explore</h4><a href="/tracking">Track parcel</a><a href="/blogs">Guides</a><a href="/login">Merchant login</a></div>
+  <div><h4>Explore</h4><a href="/tracking">Track parcel</a><a href="/blogs">Guides</a><a href="${USER_PANEL_LOGIN}">Merchant login</a></div>
 </div><div class="shell footer-bottom"><span>© 2026 ShipBees Commerce Technologies</span><span>Privacy · Terms · Responsible shipping</span></div></footer>`;
 
 const pageArt = () => `<div class="page-art" aria-hidden="true"><div class="mini-box"><small>Orders synced</small><strong>Ready to dispatch</strong></div><div class="mini-box"><small>Network status</small><strong style="color:#0f9d91">● All routes active</strong></div></div>`;
@@ -162,7 +163,7 @@ const learnPage = () => `${nav()}<main class="learn-page">
   <section class="section" id="guide-library"><div class="shell"><div class="section-head"><div><span class="eyebrow">THE GUIDE LIBRARY</span><h2>Answers you can use today.</h2></div><div class="blog-tools"><input id="blogSearch" type="search" placeholder="Search the library…"></div></div><div class="learn-grid" id="blogGrid">${blogData.map((b,i)=>`<article class="learn-card blog-card" data-search="${b.join(' ').toLowerCase()}"><div class="learn-card-no">0${i+1}</div><small>${b[0]} · ${b[3]} read</small><h3>${b[1]}</h3><p>${b[2]}</p><a href="#">Open field note →</a></article>`).join('')}</div><p id="noBlogs" style="display:none;text-align:center;color:#647084">No guide matches that search yet.</p></div></section>
 </main>${footer()}`;
 
-const login = () => `${nav()}<main class="login-section"><section class="login-art"><span class="eyebrow" style="color:#ffbf3f">MERCHANT WORKSPACE</span><h1>Your shipping day starts here.</h1><p>Sign in to organise orders, prepare dispatches and keep an eye on every parcel.</p></section><section class="login-panel"><form class="login-box" id="loginForm"><span class="eyebrow">WELCOME BACK</span><h2>Log in to ShipBees</h2><div class="field"><label for="email">Work email</label><input id="email" type="email" placeholder="you@company.com"></div><div class="field"><label for="password">Password</label><input id="password" type="password" placeholder="At least 8 characters"></div><button class="btn btn-primary" type="submit">Continue →</button><div id="loginMessage"></div><div class="demo-note">Demo only: this front-end preview validates the form without sending credentials anywhere.</div></form></section></main>`;
+const login = () => `${nav()}<main class="login-section"><section class="login-art"><span class="eyebrow" style="color:#ffbf3f">MERCHANT WORKSPACE</span><h1>Your shipping day starts here.</h1><p>Opening the secure ShipBees user login with Email OTP and Email + password.</p></section><section class="login-panel"><div class="login-box"><span class="eyebrow">SECURE SIGN-IN</span><h2>Opening your login…</h2><p>If you are not redirected automatically, continue to the merchant workspace.</p><a class="btn btn-primary" href="${USER_PANEL_LOGIN}">Continue to login →</a></div></section></main>`;
 
 const notFound = () => `${nav()}<main>${pageHero('WRONG TURN','That route has flown off the map.','The page you requested does not exist, but your next shipping task is only one click away.')}</main>${footer()}`;
 
@@ -170,7 +171,11 @@ const routes={
  '/':home,'/platform':platformPage,'/pricing':pricingPage,'/carriers':carriersPage,'/learn':learnPage,'/integrations':integrations,'/integrations/courier-partners':courierPartners,'/integrations/sales-channels':salesChannels,'/rate-calculator':()=>calculatorShell('rate'),'/weight-calculator':()=>calculatorShell('weight'),'/tracking':tracking,'/blogs':blogs,'/login':login
 };
 const path=location.pathname.replace(/\/$/,'')||'/';
-$('#app').innerHTML=(routes[path]||notFound)();
+if(path==='/login'){
+  location.replace(USER_PANEL_LOGIN);
+}else{
+  $('#app').innerHTML=(routes[path]||notFound)();
+}
 
 $('.menu-btn')?.addEventListener('click',()=>$('#siteNav').classList.toggle('mobile-open'));
 const solutionsToggle=$('.solutions-toggle'),solutionsDrop=solutionsToggle?.closest('.nav-drop');
@@ -225,8 +230,6 @@ $('#weightForm')?.addEventListener('submit',e=>{e.preventDefault();const f=new F
 $('#trackForm')?.addEventListener('submit',e=>{e.preventDefault();const id=$('#trackingId').value.trim().toUpperCase();if(!id){$('#trackMessage').innerHTML='<p class="error">Enter an AWB or order number.</p>';return;}if(id!=='SB4827'){$('#trackMessage').innerHTML='<p class="success-note">This is a demo tracker. Use <b>SB4827</b> to see a sample journey.</p>';return;}$('#trackMessage').innerHTML='';$('#trackResult').innerHTML=`<span class="eyebrow" style="color:#ffbf3f">IN TRANSIT</span><h3>Order ${id}</h3><p>Jaipur → Pune · Expected tomorrow</p><div class="timeline"><div class="event"><strong>Reached Pune sorting centre</strong><small>Today · 06:45</small></div><div class="event"><strong>Departed Jaipur hub</strong><small>Yesterday · 21:10</small></div><div class="event"><strong>Parcel picked up</strong><small>Yesterday · 15:32</small></div><div class="event pending"><strong>Out for delivery</strong><small>Next milestone</small></div></div>`;});
 
 $('#blogSearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase().trim();let count=0;$$('.blog-card').forEach(c=>{const show=c.dataset.search.includes(q);c.classList.toggle('hidden',!show);if(show)count++});$('#noBlogs').style.display=count?'none':'block';});
-$('#loginForm')?.addEventListener('submit',e=>{e.preventDefault();const email=$('#email').value.trim(),pass=$('#password').value;if(!/^\S+@\S+\.\S+$/.test(email)||pass.length<8){$('#loginMessage').innerHTML='<p class="error">Enter a valid email and a password with at least 8 characters.</p>';return;}$('#loginMessage').innerHTML='<p class="success-note">Demo validated successfully. No sign-in details were transmitted.</p>';e.currentTarget.reset();});
-
 const impactCounters=$('#impactCounters');
 if(impactCounters){
   const counters=$$('.count-up',impactCounters),reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
