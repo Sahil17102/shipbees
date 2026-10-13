@@ -3,7 +3,7 @@ const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 
 const nav = () => `
 <header class="nav" id="siteNav"><div class="shell nav-inner">
-  <a class="brand" href="/"><span class="brand-mark">B</span><span>Ship<b>Bees</b></span></a>
+  <a class="brand logo-link" href="/" aria-label="ShipBees home"><img class="brand-logo" src="/assets/shipbees-logo.svg" alt="ShipBees — People, Parcels, Progress"></a>
   <nav class="nav-links" aria-label="Main navigation">
     <div class="nav-drop"><button type="button">Solutions⌄</button><div class="mega">
       <a href="/rate-calculator"><i>₹</i><span><strong>Rate finder</strong><small>Plan a shipment budget</small></span></a>
@@ -20,7 +20,7 @@ const nav = () => `
 const footer = () => `
 <section class="section"><div class="shell quote"><div><span class="eyebrow" style="color:#ffbf3f">READY TO MOVE?</span><h2>Make your next dispatch feel effortless.</h2><p>Check the billable weight, plan a rate, and keep the journey visible.</p></div><a class="btn btn-primary" href="/rate-calculator">Plan a shipment →</a></div></section>
 <footer class="footer"><div class="shell footer-grid">
-  <div><a class="brand" href="/"><span class="brand-mark" style="background:#fff;color:#f26b38">B</span><span>Ship<b>Bees</b></span></a><p>A practical delivery workspace for ambitious online sellers—from packed box to happy doorstep.</p></div>
+  <div><a class="brand logo-link footer-logo-link" href="/" aria-label="ShipBees home"><img class="brand-logo footer-logo" src="/assets/shipbees-logo.svg" alt="ShipBees — People, Parcels, Progress"></a><p>A practical delivery workspace for ambitious online sellers—from packed box to happy doorstep.</p></div>
   <div><h4>Plan</h4><a href="/weight-calculator">Weight checker</a><a href="/rate-calculator">Rate finder</a></div>
   <div><h4>Connect</h4><a href="/integrations/sales-channels">Sales channels</a><a href="/integrations/courier-partners">Delivery network</a></div>
   <div><h4>Explore</h4><a href="/tracking">Track parcel</a><a href="/blogs">Guides</a><a href="/login">Merchant login</a></div>
