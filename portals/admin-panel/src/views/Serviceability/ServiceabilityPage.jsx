@@ -36,7 +36,7 @@ const TAG_OPTIONS = [
 
 const ServiceabilityPage = () => {
   const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(20)
+  const [perPage, setPerPage] = useState(50)
   const [selectedRows, setSelectedRows] = useState([])
   const [filters, setFilters] = useState({ pincode: '', city: '', state: '' }) // filter state
 
