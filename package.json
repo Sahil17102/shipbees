@@ -1,0 +1,8 @@
+{
+  "name": "shipbees",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"require('fs').accessSync('dist/index.html')\""
+  }
+}
