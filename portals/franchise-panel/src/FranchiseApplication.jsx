@@ -30,6 +30,33 @@ const initialForm = {
   website: '',
 }
 
+const savedApplicationKey = 'shipbeesFranchiseApplication'
+
+const getSavedApplication = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(savedApplicationKey) || 'null')
+    return saved?.applicationNumber ? saved : null
+  } catch {
+    return null
+  }
+}
+
+const saveApplication = (applicationNumber, form) => {
+  try {
+    localStorage.setItem(
+      savedApplicationKey,
+      JSON.stringify({
+        applicationNumber,
+        applicantEmail: form.applicantEmail,
+        businessName: form.businessName,
+        submittedAt: new Date().toISOString(),
+      }),
+    )
+  } catch {
+    // The confirmation remains visible for this session if browser storage is unavailable.
+  }
+}
+
 const territoryLabel = (territory) =>
   [territory.name, territory.city, territory.district, territory.state, territory.pincode]
     .filter(Boolean)
@@ -43,7 +70,10 @@ export default function FranchiseApplication({ navigate }) {
   const [submitting, setSubmitting] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [submitError, setSubmitError] = useState('')
-  const [applicationNumber, setApplicationNumber] = useState('')
+  const [savedApplication] = useState(getSavedApplication)
+  const [applicationNumber, setApplicationNumber] = useState(
+    savedApplication?.applicationNumber || '',
+  )
 
   useEffect(() => {
     let active = true
@@ -94,7 +124,9 @@ export default function FranchiseApplication({ navigate }) {
     setSubmitError('')
     try {
       const response = await portalApi.submitApplication(form)
-      setApplicationNumber(response.data.applicationNumber)
+      const reference = response.data.applicationNumber
+      saveApplication(reference, form)
+      setApplicationNumber(reference)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
       setSubmitError(error.response?.data?.message || 'Application could not be submitted.')
@@ -112,8 +144,9 @@ export default function FranchiseApplication({ navigate }) {
           <p className="eyebrow">Application received</p>
           <h1>Your franchise request is in review.</h1>
           <p>
-            Keep this reference number safe. The ShipBees franchise team will contact you after
-            reviewing your territory and business details.
+            {savedApplication
+              ? 'Your submitted request is saved on this device. The ShipBees franchise team will contact you after reviewing your territory and business details.'
+              : 'Keep this reference number safe. The ShipBees franchise team will contact you after reviewing your territory and business details.'}
           </p>
           <strong className="application-number">{applicationNumber}</strong>
           <button className="primary-button" onClick={() => navigate('/login', true)}>
@@ -183,7 +216,7 @@ export default function FranchiseApplication({ navigate }) {
             <div className="form-error"><AlertTriangle size={17} />{loadError}</div>
           )}
 
-          {!loading && !loadError && !applicationsOpen && (
+          {!loading && !loadError && !applicationsOpen && opportunities.products.length === 0 && (
             <div className="application-unavailable">
               <AlertTriangle size={22} />
               <div>
@@ -191,6 +224,21 @@ export default function FranchiseApplication({ navigate }) {
                 <p>
                   The admin team has not published a franchise plan and matching territory yet.
                   Please check back shortly or contact {opportunities.quoteEmail || 'the ShipBees team'}.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!loading && !loadError && !applicationsOpen && opportunities.products.length > 0 && (
+            <div className="application-unavailable">
+              <CheckCircle2 size={22} />
+              <div>
+                <strong>Published territory applications are currently under review.</strong>
+                <p>
+                  If you already submitted an application, it is safely recorded in the ShipBees
+                  review queue. Your reference confirmation will remain visible on the device used
+                  to submit future applications. New applications will reopen when another
+                  territory becomes available.
                 </p>
               </div>
             </div>
