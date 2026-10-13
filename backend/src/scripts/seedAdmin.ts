@@ -21,7 +21,27 @@ export const seedAdmin = async ({
 }: SeedAdminProps): Promise<User> => {
   // check if user already exists
   const existing = await db.select().from(users).where(eq(users.phone, phone))
-  if (existing.length > 0) return existing[0] as User
+  if (existing.length > 0) {
+    const hashedPassword = await bcrypt.hash(password, 10)
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        email: email ?? existing[0].email,
+        passwordHash: hashedPassword,
+        role,
+        phoneVerified: true,
+        emailVerified: !!email,
+        refreshToken: null,
+        refreshTokenExpiresAt: null,
+        previousRefreshToken: null,
+        previousRefreshTokenExpiresAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.phone, phone))
+      .returning()
+
+    return updatedUser as User
+  }
 
   // hash password
   const hashedPassword = await bcrypt.hash(password, 10)
@@ -47,12 +67,16 @@ export const seedAdmin = async ({
 
 seedAdmin({
   phone: '+916283315911', // valid Indian phone format
-  email: 'admin@shipray.com', // professional-looking dev email
+  email: 'admin@shipbees.com',
   password: 'Admin@12345!', // strong password
   role: 'admin',
 })
   .then((user) => {
-    console.log('Admin user created or already exists:', user)
+    console.log('Admin user created or updated:', {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    })
     process.exit(0)
   })
   .catch((err) => {
