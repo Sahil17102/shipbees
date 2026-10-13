@@ -21,6 +21,7 @@
 /* Scroll choreography: the cards begin as a Cuberto-style fan, then resolve into a clean 3+2 grid. */
 .story-section{min-height:1260px;padding-bottom:25px}
 .story-fan{position:sticky;top:86px;height:950px;margin-top:58px}
+.story-hint{margin-top:72px}
 .story-card{width:368px;min-height:420px;opacity:0;transition:opacity .55s ease,box-shadow .25s ease;transition-delay:var(--delay)}
 .story-fan.is-visible .story-card{opacity:1}
 .story-fan.is-visible .story-card:hover{transform:inherit}
