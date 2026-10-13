@@ -245,8 +245,17 @@ export const updateKycStatus = async (
     payload.rejectionReason = reason
   }
 
-  // Update main KYC record
-  await db.update(kyc).set(payload).where(eq(kyc.userId, userId)).execute()
+  // Admin approval must also work for older merchant accounts that were created
+  // before a dedicated KYC row existed. Upsert keeps the approval endpoint
+  // authoritative instead of returning success after updating zero rows.
+  await db
+    .insert(kyc)
+    .values({ userId, ...payload })
+    .onConflictDoUpdate({
+      target: kyc.userId,
+      set: payload,
+    })
+    .execute()
 
   // Keep `user_profiles.domesticKyc` in sync so Admin UI shows correct status
   await db
