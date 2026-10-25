@@ -50,6 +50,7 @@ import {
 } from '../../models/services/couriers/velocity.service'
 import {
   ensureInternationalCourierCatalog,
+  INTERNATIONAL_COURIER_PROVIDERS,
   readConnectionStatus,
 } from '../../models/services/internationalCourierCatalog.service'
 
@@ -171,10 +172,16 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
     const credentialRows = await db.select({ provider: courier_credentials.provider, metadata: courier_credentials.metadata })
       .from(courier_credentials).where(inArray(courier_credentials.provider, ['dilliking', 'icl']))
     const connections = new Map(credentialRows.map((row) => [row.provider, readConnectionStatus(row.metadata)]))
-    res.json({ success: true, data: courierList.map((courier) => ({
-      ...courier,
-      ...(connections.has(courier.serviceProvider) ? connections.get(courier.serviceProvider) : {}),
-    })) })
+    res.json({ success: true, data: courierList.map((courier) => {
+      const connection = connections.get(courier.serviceProvider)
+      const isInternational = INTERNATIONAL_COURIER_PROVIDERS.includes(courier.serviceProvider as any)
+      return {
+        ...courier,
+        connectionStatus: connection?.connectionStatus || (isInternational ? 'setup_required' : 'not_applicable'),
+        connected: connection?.connected ?? (isInternational ? false : null),
+        connectionCheckedAt: connection?.connectionCheckedAt || '',
+      }
+    }) })
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false })
@@ -234,11 +241,15 @@ export const getAllCouriersListController = async (req: Request, res: Response) 
     const credentialRows = await db.select({ provider: courier_credentials.provider, metadata: courier_credentials.metadata })
       .from(courier_credentials).where(inArray(courier_credentials.provider, ['dilliking', 'icl']))
     const connections = new Map(credentialRows.map((row) => [row.provider, readConnectionStatus(row.metadata)]))
-    res.json({ success: true, data: courierList.map((courier) => ({
-      ...courier,
-      connectionStatus: connections.get(courier.serviceProvider)?.connectionStatus || 'not_applicable',
-      connected: connections.get(courier.serviceProvider)?.connected ?? null,
-    })) })
+    res.json({ success: true, data: courierList.map((courier) => {
+      const connection = connections.get(courier.serviceProvider)
+      const isInternational = INTERNATIONAL_COURIER_PROVIDERS.includes(courier.serviceProvider as any)
+      return {
+        ...courier,
+        connectionStatus: connection?.connectionStatus || (isInternational ? 'setup_required' : 'not_applicable'),
+        connected: connection?.connected ?? (isInternational ? false : null),
+      }
+    }) })
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to fetch couriers' })

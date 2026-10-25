@@ -77,11 +77,22 @@ const Couriers = () => {
   ]
 
   const renderers = {
-    connectionStatus: (value) => (
-      <Badge colorScheme={value === 'connected' ? 'green' : value === 'not_applicable' ? 'gray' : 'orange'}>
-        {value === 'connected' ? 'Connected' : value === 'not_applicable' ? 'Standard' : 'Not connected'}
-      </Badge>
-    ),
+    connectionStatus: (value) => {
+      const label = value === 'connected'
+        ? 'Connected'
+        : value === 'not_applicable'
+          ? 'Standard'
+          : value === 'setup_required'
+            ? 'Setup required'
+            : value === 'untested'
+              ? 'Test required'
+              : 'Connection failed'
+      return (
+        <Badge colorScheme={value === 'connected' ? 'green' : value === 'not_applicable' ? 'gray' : 'orange'}>
+          {label}
+        </Badge>
+      )
+    },
     isEnabled: (value) => (
       <Text fontWeight="semibold" color={value ? 'green.500' : 'red.500'}>
         {value ? 'Enabled' : 'Disabled'}
