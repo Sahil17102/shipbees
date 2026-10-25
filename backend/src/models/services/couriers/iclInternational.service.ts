@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../client'
 import { courier_credentials } from '../../schema/courierCredentials'
 import { decryptSecret } from '../../../utils/secretEncryption'
+import { ICL_ADDRESS_LINE_LIMIT } from '../../../utils/iclPayload'
 
 const PROVIDER = 'icl'
 const DEFAULT_API_BASE = 'https://cloud.iclinternational.in'
@@ -110,6 +111,11 @@ export class IclInternationalService {
     }
     if (!String(payload?.DocumentType || '').trim() || !String(payload?.DocumentNumber || '').trim()) {
       throw new Error('ICL bookings require the shipper KYC document type and number')
+    }
+    for (const field of ['ShipperAdd1', 'ShipperAdd2', 'ConsigneeAdd1', 'ConsigneeAdd2']) {
+      if (String(payload?.[field] || '').length > ICL_ADDRESS_LINE_LIMIT) {
+        throw new Error(`ICL ${field} cannot exceed ${ICL_ADDRESS_LINE_LIMIT} characters`)
+      }
     }
     const businessType = String(payload?.Buisness_Type || '').trim().toUpperCase()
     const exportReason = String(payload?.ExportReason || '').trim().toUpperCase()

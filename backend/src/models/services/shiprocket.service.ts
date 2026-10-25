@@ -48,6 +48,7 @@ import { buildDelhiveryLtlShipmentDetailsPayload } from '../../utils/delhiveryLt
 import { parseDelhiveryTrackingTimestamp } from '../../utils/delhiveryTrackingTime'
 import { getBucketName } from '../../utils/functions'
 import { normalizeShipmentDateInput, parseShipmentDate } from '../../utils/shipmentDate'
+import { splitIclAddress } from '../../utils/iclPayload'
 import { db } from '../client'
 import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
@@ -8785,14 +8786,22 @@ export const createB2CShipmentService = async (
       if (!performaInvoice.length) {
         throw new HttpError(500, 'Unable to generate the performa invoice required by ICL.')
       }
+      const shipperAddress = splitIclAddress(
+        params.pickup?.address,
+        params.pickup?.address_2,
+      )
+      const consigneeAddress = splitIclAddress(
+        params.consignee?.address,
+        params.consignee?.address_2 || params.consignee?.locality,
+      )
       const iclPayload = {
         CustomerRefNo: params.order_number,
         OriginName: 'IN',
         DestinationName: destinationCode,
         ShipperName: params.company?.name || params.pickup?.warehouse_name || params.pickup?.name,
         ShipperContact: params.pickup?.name || params.company?.name || 'Shipper',
-        ShipperAdd1: params.pickup?.address,
-        ShipperAdd2: params.pickup?.address_2 || '',
+        ShipperAdd1: shipperAddress.line1,
+        ShipperAdd2: shipperAddress.line2,
         ShipperCity: params.pickup?.city,
         ShipperState: params.pickup?.state,
         ShipperPin: params.pickup?.pincode,
@@ -8803,8 +8812,8 @@ export const createB2CShipmentService = async (
         DocumentNumber: shipperDocumentNumber,
         ConsigneeName: params.consignee?.name,
         ConsigneeContact: params.consignee?.name,
-        ConsigneeAdd1: params.consignee?.address,
-        ConsigneeAdd2: params.consignee?.address_2 || params.consignee?.locality || '',
+        ConsigneeAdd1: consigneeAddress.line1,
+        ConsigneeAdd2: consigneeAddress.line2,
         ConsigneeCity: params.consignee?.city,
         ConsigneeState: params.consignee?.state,
         ConsigneePin: params.consignee?.pincode,
