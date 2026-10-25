@@ -718,8 +718,8 @@ const getInternationalCourierOptions = async (
     courier_cost_estimate: total,
     total_charges: total,
     wallet_debit_amount: total,
-    chargeable_weight: weightKg,
-    localRates: { forward: { rate: total, chargeable_weight: weightKg } },
+    chargeable_weight: Math.round(weightKg * 1000),
+    localRates: { forward: { rate: total, chargeable_weight: Math.round(weightKg * 1000) } },
     international_rate: rate,
   }]
 }
