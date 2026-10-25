@@ -8826,11 +8826,13 @@ export const createB2CShipmentService = async (
         CODAmount: '',
         CSBType: 'CSB4',
         TermofInvoice: 'CFR',
-        ExportReason: 'SALE OF GOODS',
+        // ICL's B2B contract does not accept "SALE OF GOODS". Keep this paired
+        // with Buisness_Type/IsCommercial exactly as shown in their booking spec.
+        ExportReason: 'FREE TRADE SAMPLE',
         InvoiceNo: invoiceNumber,
         InvoiceDate: invoiceDate,
         CompanyCode: '',
-        IsCommercial: 1,
+        IsCommercial: 0,
         RequiredPerforma: 'Y',
         RequiredLable: 'Y',
         // ICL's supplied booking contract uses its own customs classification here.

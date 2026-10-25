@@ -111,6 +111,13 @@ export class IclInternationalService {
     if (!String(payload?.DocumentType || '').trim() || !String(payload?.DocumentNumber || '').trim()) {
       throw new Error('ICL bookings require the shipper KYC document type and number')
     }
+    const businessType = String(payload?.Buisness_Type || '').trim().toUpperCase()
+    const exportReason = String(payload?.ExportReason || '').trim().toUpperCase()
+    if (businessType === 'B2B' && exportReason === 'SALE OF GOODS') {
+      throw new Error(
+        'ICL B2B bookings require a supported export reason; SALE OF GOODS is not allowed',
+      )
+    }
     if (Number(payload?.Selfinvoice) === 1) {
       if (String(payload?.KYCDocumentType || '').trim().toUpperCase() !== 'PERFORMA INVOICE') {
         throw new Error('ICL self-invoice bookings require KYCDocumentType PERFORMA Invoice')
