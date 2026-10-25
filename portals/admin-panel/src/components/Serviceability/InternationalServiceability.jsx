@@ -36,6 +36,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { IconDatabaseImport, IconEdit, IconMapPinCheck, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
+import { useDebounce } from '../../hooks/useDebounce'
 import { internationalServiceabilityService } from '../../services/internationalServiceability.service'
 
 const emptyRule = {
@@ -58,6 +59,7 @@ const InternationalServiceability = () => {
   const [postalSearch, setPostalSearch] = useState('')
   const [postalCountry, setPostalCountry] = useState('')
   const [postalPage, setPostalPage] = useState(1)
+  const debouncedPostalSearch = useDebounce(postalSearch.trim(), 350)
 
   const { data: coverage = {}, isLoading } = useQuery({
     queryKey: ['international-serviceability'],
@@ -66,14 +68,16 @@ const InternationalServiceability = () => {
   })
   const rules = coverage.rules || []
   const stats = coverage.stats || {}
-  const { data: postalResult = {}, isLoading: postalLoading } = useQuery({
-    queryKey: ['international-postal-codes', postalCountry, postalSearch, postalPage],
-    queryFn: () => internationalServiceabilityService.listPostalCodes({
+  const { data: postalResult = {}, isLoading: postalLoading, isFetching: postalFetching } = useQuery({
+    queryKey: ['international-postal-codes', postalCountry, debouncedPostalSearch, postalPage],
+    queryFn: ({ signal }) => internationalServiceabilityService.listPostalCodes({
       countryCode: postalCountry || undefined,
-      search: postalSearch || undefined,
+      search: debouncedPostalSearch.length >= 2 ? debouncedPostalSearch : undefined,
       page: postalPage,
       limit: 50,
-    }),
+    }, signal),
+    placeholderData: (previousData) => previousData,
+    staleTime: 60 * 1000,
   })
   const postalCodes = postalResult.data || []
   const pagination = postalResult.pagination || { page: 1, total: 0, totalPages: 1 }
@@ -143,7 +147,10 @@ const InternationalServiceability = () => {
       </Box>
 
       <Box mb={7}>
-        <Heading size="sm" mb={3}>Postal codes</Heading>
+        <Flex align="center" gap={2} mb={3}>
+          <Heading size="sm">Postal codes</Heading>
+          {postalFetching && !postalLoading && <><Spinner size="xs" color="purple.500" /><Text fontSize="xs" color="gray.500">Updating results…</Text></>}
+        </Flex>
         <Flex gap={3} mb={4} direction={{ base: 'column', md: 'row' }}>
           <Flex align="center" gap={2} flex="2" borderWidth="1px" borderRadius="md" px={3}><IconSearch size={17} color="#718096" /><Input border="0" boxShadow="none" value={postalSearch} onChange={(e) => { setPostalSearch(e.target.value); setPostalPage(1) }} placeholder="Search postal code, city or state" /></Flex>
           <Select value={postalCountry} onChange={(e) => { setPostalCountry(e.target.value); setPostalPage(1) }} flex="1"><option value="">All countries</option>{[...new Map(rules.map((r) => [r.countryCode, r])).values()].map((r) => <option key={r.countryCode} value={r.countryCode}>{r.countryName} ({Number(stats.countsByCountry?.[r.countryCode] || 0).toLocaleString()})</option>)}</Select>

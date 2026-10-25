@@ -7,8 +7,8 @@ export const internationalServiceabilityService = {
     const { data } = await api.get(base)
     return { rules: data.data || [], stats: data.stats || {} }
   },
-  async listPostalCodes(params = {}) {
-    const { data } = await api.get(`${base}/postal-codes`, { params })
+  async listPostalCodes(params = {}, signal) {
+    const { data } = await api.get(`${base}/postal-codes`, { params, signal })
     return data
   },
   async startSync() {

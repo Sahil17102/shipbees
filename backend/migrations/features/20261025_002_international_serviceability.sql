@@ -35,3 +35,9 @@ create index if not exists shipray_intl_postal_country_code_idx
 
 create index if not exists shipray_intl_postal_place_idx
   on shipray_international_postal_codes (lower(place_name));
+
+create extension if not exists pg_trgm;
+
+create index if not exists shipray_intl_postal_search_trgm_idx
+  on shipray_international_postal_codes using gin
+  ((postal_code || ' ' || place_name || ' ' || admin_name) gin_trgm_ops);

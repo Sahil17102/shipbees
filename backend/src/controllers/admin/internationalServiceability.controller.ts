@@ -73,8 +73,13 @@ let syncState: SyncState = {
   startedAt: null, finishedAt: null, error: null,
 }
 
+let postalSchemaPromise: Promise<void> | null = null
+let postalStatsCache: { expiresAt: number; value: Awaited<ReturnType<typeof loadPostalStats>> } | null = null
+
 const ensurePostalTable = async () => {
-  await pool.query(`
+  if (postalSchemaPromise) return postalSchemaPromise
+  postalSchemaPromise = (async () => {
+    await pool.query(`
     create table if not exists shipray_international_postal_codes (
       id bigserial primary key,
       country_code varchar(2) not null,
@@ -87,11 +92,22 @@ const ensurePostalTable = async () => {
       synced_at timestamptz not null default now(),
       unique (country_code, postal_code)
     )
-  `)
-  await pool.query(`create index if not exists shipray_intl_postal_country_code_idx
-    on shipray_international_postal_codes (country_code, postal_code)`)
-  await pool.query(`create index if not exists shipray_intl_postal_place_idx
-    on shipray_international_postal_codes (lower(place_name))`)
+    `)
+    await pool.query(`create index if not exists shipray_intl_postal_country_code_idx
+      on shipray_international_postal_codes (country_code, postal_code)`)
+    try {
+      await pool.query('create extension if not exists pg_trgm')
+      await pool.query(`create index if not exists shipray_intl_postal_search_trgm_idx
+        on shipray_international_postal_codes using gin
+        ((postal_code || ' ' || place_name || ' ' || admin_name) gin_trgm_ops)`)
+    } catch (error: any) {
+      console.warn('[international-postal-indexes]', error?.message || error)
+    }
+  })().catch((error) => {
+    postalSchemaPromise = null
+    throw error
+  })
+  return postalSchemaPromise
 }
 
 type PostalRow = {
@@ -193,6 +209,7 @@ const syncPostalDirectory = async () => {
     }
     syncState.status = 'complete'
     syncState.finishedAt = new Date().toISOString()
+    postalStatsCache = null
   } catch (error: any) {
     console.error('[international-postal-sync]', error?.message || error)
     syncState.status = 'failed'
@@ -201,8 +218,7 @@ const syncPostalDirectory = async () => {
   }
 }
 
-const getPostalStats = async () => {
-  await ensurePostalTable()
+const loadPostalStats = async () => {
   const [totals, countries] = await Promise.all([
     pool.query(`select count(*)::int as total, count(distinct country_code)::int as countries,
       max(synced_at) as last_synced_at from shipray_international_postal_codes`),
@@ -217,6 +233,16 @@ const getPostalStats = async () => {
     source: 'GeoNames postal code data (CC BY 4.0)',
     sync: syncState,
   }
+}
+
+const getPostalStats = async () => {
+  await ensurePostalTable()
+  if (postalStatsCache && postalStatsCache.expiresAt > Date.now() && syncState.status !== 'running') {
+    return { ...postalStatsCache.value, sync: syncState }
+  }
+  const value = await loadPostalStats()
+  if (syncState.status !== 'running') postalStatsCache = { value, expiresAt: Date.now() + 5 * 60 * 1000 }
+  return value
 }
 
 const ensureTableAndSeeds = async () => {
@@ -278,18 +304,39 @@ export const listInternationalPostalCodes = async (req: Request, res: Response) 
       where.push(`country_code=$${values.length}`)
     }
     if (search) {
-      values.push(`%${search}%`)
-      where.push(`(postal_code ilike $${values.length} or place_name ilike $${values.length} or admin_name ilike $${values.length})`)
+      const normalizedSearch = search.toLowerCase()
+      const matchingCountryCodes = rules
+        .filter(([code, name]) => code.toLowerCase().includes(normalizedSearch) || name.toLowerCase().includes(normalizedSearch))
+        .map(([code]) => code)
+      const exactCountryCodes = rules
+        .filter(([code, name]) => code.toLowerCase() === normalizedSearch || name.toLowerCase() === normalizedSearch)
+        .map(([code]) => code)
+      if (exactCountryCodes.length) {
+        values.push(exactCountryCodes)
+        where.push(`country_code = any($${values.length}::text[])`)
+      } else if (matchingCountryCodes.length) {
+        values.push(`%${search}%`)
+        const searchParam = values.length
+        values.push(matchingCountryCodes)
+        where.push(`(country_code = any($${values.length}::text[]) or (postal_code || ' ' || place_name || ' ' || admin_name) ilike $${searchParam})`)
+      } else {
+        values.push(`%${search}%`)
+        const searchParam = values.length
+        where.push(`(postal_code || ' ' || place_name || ' ' || admin_name) ilike $${searchParam}`)
+      }
     }
     const clause = where.length ? `where ${where.join(' and ')}` : ''
-    const countResult = await pool.query(`select count(*)::int as total from shipray_international_postal_codes ${clause}`, values)
-    values.push(limit, (page - 1) * limit)
-    const result = await pool.query(
-      `select country_code,postal_code,place_name,admin_name,latitude,longitude,source
-       from shipray_international_postal_codes ${clause}
-       order by country_code,postal_code limit $${values.length - 1} offset $${values.length}`,
-      values,
-    )
+    const filterValues = [...values]
+    const resultValues = [...values, limit, (page - 1) * limit]
+    const [countResult, result] = await Promise.all([
+      pool.query(`select count(*)::int as total from shipray_international_postal_codes ${clause}`, filterValues),
+      pool.query(
+        `select country_code,postal_code,place_name,admin_name,latitude,longitude,source
+         from shipray_international_postal_codes ${clause}
+         order by country_code,postal_code limit $${resultValues.length - 1} offset $${resultValues.length}`,
+        resultValues,
+      ),
+    ])
     const total = Number(countResult.rows[0]?.total || 0)
     return res.json({
       data: result.rows.map((row) => ({
