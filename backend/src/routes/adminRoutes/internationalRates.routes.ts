@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import {
+  createInternationalRate,
   listInternationalRates,
   updateInternationalRate,
 } from '../../controllers/admin/internationalRates.controller'
@@ -19,6 +20,7 @@ import {
 const router = Router()
 router.use(requireAuth, isAdminMiddleware)
 router.get('/rates', listInternationalRates)
+router.post('/rates', createInternationalRate)
 router.put('/rates/:id', updateInternationalRate)
 router.get('/serviceability', listInternationalServiceability)
 router.get('/serviceability/postal-codes', listInternationalPostalCodes)

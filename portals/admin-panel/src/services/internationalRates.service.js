@@ -6,6 +6,11 @@ export const internationalRatesService = {
     return data.data || []
   },
 
+  async create(payload) {
+    const { data } = await api.post('/admin/international/rates', payload)
+    return data.data
+  },
+
   async update(id, payload) {
     const { data } = await api.put(`/admin/international/rates/${id}`, payload)
     return data.data

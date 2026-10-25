@@ -116,6 +116,43 @@ const serialize = (row: any) => ({
   updatedAt: row.updated_at,
 })
 
+const requiredText = (value: unknown, field: string, maxLength: number) => {
+  const text = String(value || '').trim()
+  if (!text) throw new Error(`${field} is required`)
+  if (text.length > maxLength) throw new Error(`${field} must be ${maxLength} characters or fewer`)
+  return text
+}
+
+const parseRatePayload = (body: any) => {
+  const countryCode = requiredText(body.countryCode, 'Country code', 2).toUpperCase()
+  if (!/^[A-Z]{2}$/.test(countryCode)) throw new Error('Country code must be a 2-letter ISO code')
+
+  const currency = requiredText(body.currency || 'INR', 'Currency', 3).toUpperCase()
+  if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Currency must be a 3-letter code')
+
+  const dutiesMode = String(body.dutiesMode || '').toUpperCase()
+  if (!['DDU', 'DDP'].includes(dutiesMode)) throw new Error('Duties mode must be DDU or DDP')
+
+  return {
+    countryCode,
+    countryName: requiredText(body.countryName, 'Country name', 120),
+    region: requiredText(body.region, 'Region', 80),
+    courierName: requiredText(body.courierName, 'Courier name', 120),
+    serviceType: requiredText(body.serviceType, 'Service type', 80),
+    currency,
+    baseWeightKg: toNumber(body.baseWeightKg, 'Base weight', 0.01, 1000),
+    baseRate: toNumber(body.baseRate, 'Base rate'),
+    additionalRatePerKg: toNumber(body.additionalRatePerKg, 'Additional rate'),
+    fuelSurchargePercent: toNumber(body.fuelSurchargePercent, 'Fuel surcharge', 0, 100),
+    handlingFee: toNumber(body.handlingFee, 'Handling fee'),
+    customsClearanceFee: toNumber(body.customsClearanceFee, 'Customs clearance fee'),
+    insurancePercent: toNumber(body.insurancePercent, 'Insurance', 0, 100),
+    taxPercent: toNumber(body.taxPercent, 'Tax', 0, 100),
+    dutiesMode,
+    isActive: body.isActive !== false,
+  }
+}
+
 export const listInternationalRates = async (_req: Request, res: Response) => {
   try {
     await ensureTableAndDefaults()
@@ -127,6 +164,37 @@ export const listInternationalRates = async (_req: Request, res: Response) => {
   } catch (error: any) {
     console.error('[international-rates:list]', error)
     return res.status(500).json({ message: error?.message || 'Unable to load international rates' })
+  }
+}
+
+export const createInternationalRate = async (req: Request, res: Response) => {
+  try {
+    await ensureTableAndDefaults()
+    const rate = parseRatePayload(req.body || {})
+    const result = await pool.query(
+      `insert into shipray_international_rate_cards
+        (country_code, country_name, region, courier_name, service_type, currency,
+         base_weight_kg, base_rate, additional_rate_per_kg, fuel_surcharge_percent,
+         handling_fee, customs_clearance_fee, insurance_percent, tax_percent,
+         duties_mode, is_active)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       returning *`,
+      [
+        rate.countryCode, rate.countryName, rate.region, rate.courierName,
+        rate.serviceType, rate.currency, rate.baseWeightKg, rate.baseRate,
+        rate.additionalRatePerKg, rate.fuelSurchargePercent, rate.handlingFee,
+        rate.customsClearanceFee, rate.insurancePercent, rate.taxPercent,
+        rate.dutiesMode, rate.isActive,
+      ],
+    )
+    return res.status(201).json({ data: serialize(result.rows[0]) })
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      return res.status(409).json({ message: 'A rate card already exists for this country, courier and service' })
+    }
+    const message = error?.message || 'Unable to create international rate'
+    const isValidationError = message.includes('required') || message.includes('must be')
+    return res.status(isValidationError ? 400 : 500).json({ message })
   }
 }
 

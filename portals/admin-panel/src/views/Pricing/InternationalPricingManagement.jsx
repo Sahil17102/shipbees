@@ -42,6 +42,7 @@ import {
   IconEdit,
   IconGlobe,
   IconPlaneDeparture,
+  IconPlus,
   IconSearch,
   IconShieldCheck,
 } from '@tabler/icons-react'
@@ -73,6 +74,27 @@ const numericFields = [
   ['taxPercent', 'Shipping tax / GST (%)'],
 ]
 
+const emptyRate = {
+  countryCode: '',
+  countryName: '',
+  region: 'Europe',
+  courierName: '',
+  serviceType: 'International Express',
+  currency: 'INR',
+  baseWeightKg: 0.5,
+  baseRate: '',
+  additionalRatePerKg: '',
+  fuelSurchargePercent: 0,
+  handlingFee: 0,
+  customsClearanceFee: 0,
+  insurancePercent: 0,
+  taxPercent: 18,
+  dutiesMode: 'DDU',
+  isActive: true,
+}
+
+const regionOptions = ['Europe', 'Asia', 'Middle East', 'North America', 'South America', 'Africa', 'Oceania']
+
 const InternationalPricingManagement = () => {
   const cardBg = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.700')
@@ -80,6 +102,8 @@ const InternationalPricingManagement = () => {
   const tableHeadBg = useColorModeValue('gray.50', 'gray.900')
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [editing, setEditing] = useState(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [destinationTemplate, setDestinationTemplate] = useState('new')
   const [search, setSearch] = useState('')
   const [region, setRegion] = useState('All regions')
   const [courier, setCourier] = useState('All couriers')
@@ -108,8 +132,37 @@ const InternationalPricingManagement = () => {
       }),
   })
 
+  const createRate = useMutation({
+    mutationFn: internationalRatesService.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['international-rates'] })
+      toast({ title: 'International rate card added', status: 'success', duration: 2500 })
+      onClose()
+    },
+    onError: (error) =>
+      toast({
+        title: 'Rate card could not be added',
+        description: error?.response?.data?.message || error.message,
+        status: 'error',
+        duration: 4000,
+      }),
+  })
+
   const regions = useMemo(() => [...new Set(rates.map((item) => item.region))], [rates])
   const couriers = useMemo(() => [...new Set(rates.map((item) => item.courierName))], [rates])
+  const destinations = useMemo(() => {
+    const byCode = new Map()
+    rates.forEach((item) => {
+      if (!byCode.has(item.countryCode)) {
+        byCode.set(item.countryCode, {
+          countryCode: item.countryCode,
+          countryName: item.countryName,
+          region: item.region,
+        })
+      }
+    })
+    return [...byCode.values()].sort((a, b) => a.countryName.localeCompare(b.countryName))
+  }, [rates])
   const filteredRates = useMemo(() => {
     const term = search.trim().toLowerCase()
     return rates.filter((item) => {
@@ -128,8 +181,26 @@ const InternationalPricingManagement = () => {
   }, [rates, search, region, courier, status])
 
   const openEditor = (rate) => {
+    setIsCreating(false)
     setEditing({ ...rate })
     onOpen()
+  }
+
+  const openCreator = () => {
+    setIsCreating(true)
+    setDestinationTemplate('new')
+    setEditing({ ...emptyRate })
+    onOpen()
+  }
+
+  const chooseDestination = (code) => {
+    setDestinationTemplate(code)
+    if (code === 'new') {
+      setEditing((current) => ({ ...current, countryCode: '', countryName: '', region: 'Europe' }))
+      return
+    }
+    const destination = destinations.find((item) => item.countryCode === code)
+    if (destination) setEditing((current) => ({ ...current, ...destination }))
   }
 
   const updateField = (field, value) => setEditing((current) => ({ ...current, [field]: value }))
@@ -138,7 +209,19 @@ const InternationalPricingManagement = () => {
     numericFields.forEach(([field]) => {
       payload[field] = Number(payload[field])
     })
-    updateRate.mutate({ id: editing.id, payload })
+    if (isCreating) {
+      if (!payload.countryName?.trim() || !/^[A-Za-z]{2}$/.test(payload.countryCode || '')) {
+        toast({ title: 'Enter a country name and valid 2-letter ISO code', status: 'warning', duration: 3000 })
+        return
+      }
+      if (!payload.courierName?.trim() || !payload.serviceType?.trim()) {
+        toast({ title: 'Courier name and service type are required', status: 'warning', duration: 3000 })
+        return
+      }
+      createRate.mutate(payload)
+    } else {
+      updateRate.mutate({ id: editing.id, payload })
+    }
   }
 
   const activeCount = rates.filter((item) => item.isActive).length
@@ -158,9 +241,14 @@ const InternationalPricingManagement = () => {
             Country-wise courier rates, export charges and tax settings in one place
           </Text>
         </Box>
-        <Badge px={4} py={2} borderRadius="full" colorScheme="purple" textTransform="none" fontSize="sm">
-          Rates from India · INR
-        </Badge>
+        <Flex align="center" gap={3} wrap="wrap">
+          <Badge px={4} py={2} borderRadius="full" colorScheme="purple" textTransform="none" fontSize="sm">
+            Rates from India · INR
+          </Badge>
+          <Button colorScheme="purple" leftIcon={<IconPlus size={18} />} onClick={openCreator}>
+            Add rate card
+          </Button>
+        </Flex>
       </Flex>
 
       <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={4} mb={6}>
@@ -256,12 +344,40 @@ const InternationalPricingManagement = () => {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            <Flex align="center" gap={3}><IconPlaneDeparture size={22} /> Edit {editing?.countryName} · {editing?.courierName}</Flex>
+            <Flex align="center" gap={3}>
+              <IconPlaneDeparture size={22} />
+              {isCreating ? 'Add international rate card' : `Edit ${editing?.countryName} · ${editing?.courierName}`}
+            </Flex>
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {editing && (
               <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} gap={5}>
+                {isCreating && (
+                  <>
+                    <GridItem colSpan={{ base: 1, md: 2 }}>
+                      <FormControl>
+                        <FormLabel>Destination</FormLabel>
+                        <Select value={destinationTemplate} onChange={(e) => chooseDestination(e.target.value)}>
+                          <option value="new">Add a new country</option>
+                          {destinations.map((item) => (
+                            <option key={item.countryCode} value={item.countryCode}>
+                              {item.countryName} ({item.countryCode})
+                            </option>
+                          ))}
+                        </Select>
+                        <Text mt={1} fontSize="xs" color="gray.500">
+                          Select an existing destination or add any country using its ISO code.
+                        </Text>
+                      </FormControl>
+                    </GridItem>
+                    <GridItem><FormControl isRequired><FormLabel>Country name</FormLabel><Input value={editing.countryName} onChange={(e) => updateField('countryName', e.target.value)} placeholder="e.g. Brazil" /></FormControl></GridItem>
+                    <GridItem><FormControl isRequired><FormLabel>Country code</FormLabel><Input value={editing.countryCode} maxLength={2} textTransform="uppercase" onChange={(e) => updateField('countryCode', e.target.value.toUpperCase())} placeholder="e.g. BR" /></FormControl></GridItem>
+                    <GridItem><FormControl isRequired><FormLabel>Region</FormLabel><Select value={editing.region} onChange={(e) => updateField('region', e.target.value)}>{regionOptions.map((item) => <option key={item}>{item}</option>)}</Select></FormControl></GridItem>
+                    <GridItem><FormControl isRequired><FormLabel>Courier</FormLabel><Input list="international-couriers" value={editing.courierName} onChange={(e) => updateField('courierName', e.target.value)} placeholder="e.g. DHL Express" /><datalist id="international-couriers">{couriers.map((item) => <option key={item} value={item} />)}</datalist></FormControl></GridItem>
+                    <GridItem colSpan={{ base: 1, md: 2 }}><FormControl isRequired><FormLabel>Service name</FormLabel><Input value={editing.serviceType} onChange={(e) => updateField('serviceType', e.target.value)} placeholder="e.g. Express Worldwide" /></FormControl></GridItem>
+                  </>
+                )}
                 <GridItem><FormControl><FormLabel>Currency</FormLabel><Select value={editing.currency} onChange={(e) => updateField('currency', e.target.value)}><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option></Select></FormControl></GridItem>
                 <GridItem><FormControl><FormLabel>Duties model</FormLabel><Select value={editing.dutiesMode} onChange={(e) => updateField('dutiesMode', e.target.value)}><option value="DDU">DDU · Receiver pays duties</option><option value="DDP">DDP · Sender pays duties</option></Select></FormControl></GridItem>
                 {numericFields.map(([field, label]) => (
@@ -271,7 +387,7 @@ const InternationalPricingManagement = () => {
               </Grid>
             )}
           </ModalBody>
-          <ModalFooter gap={3}><Button variant="ghost" onClick={onClose}>Cancel</Button><Button colorScheme="purple" onClick={save} isLoading={updateRate.isPending}>Save rate card</Button></ModalFooter>
+          <ModalFooter gap={3}><Button variant="ghost" onClick={onClose}>Cancel</Button><Button colorScheme="purple" onClick={save} isLoading={updateRate.isPending || createRate.isPending}>{isCreating ? 'Add rate card' : 'Save rate card'}</Button></ModalFooter>
         </ModalContent>
       </Modal>
     </Box>
