@@ -49,6 +49,10 @@ export async function createPickupAddressHandler(req: any, res: Response): Promi
       })
     }
 
+    if (Number(anyErr?.statusCode) >= 400 && Number(anyErr?.statusCode) < 500) {
+      return res.status(Number(anyErr.statusCode)).json({ message: anyErr.message })
+    }
+
     return res.status(500).json({ message: 'Internal server error' })
   }
 }
@@ -81,6 +85,10 @@ export async function updatePickupAddressHandler(req: any, res: Response): Promi
     })
   } catch (err) {
     console.error('Update Pickup Address Error:', err)
+    const anyErr: any = err
+    if (Number(anyErr?.statusCode) >= 400 && Number(anyErr?.statusCode) < 500) {
+      return res.status(Number(anyErr.statusCode)).json({ message: anyErr.message })
+    }
     return res.status(500).json({ message: 'Internal server error' })
   }
 }

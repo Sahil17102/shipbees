@@ -16,6 +16,7 @@ import { MapContainer, Marker, TileLayer } from 'react-leaflet'
 import { fetchLocations } from '../../api/locations'
 import { useDebouncedEffect } from '../../hooks/useDebounceEffect'
 import type { PickupFormValues } from '../../types/generic.types'
+import { GSTIN_REGEX } from '../../utils/gstin'
 import AutocompleteDropdown from '../UI/inputs/AutoCompleteDropdown'
 import CustomInput from '../UI/inputs/CustomInput'
 import CustomSelect from '../UI/inputs/CustomSelect'
@@ -655,6 +656,7 @@ const PickupAddressSection = ({
                 { name: 'gstNumber', label: 'GST Number' },
               ].map(({ name, label, required: isReq }) => {
                 const isPincodeField = name === 'pincode'
+                const isGstField = name === 'gstNumber'
                 const rules =
                   name === 'addressLine1'
                     ? {
@@ -672,6 +674,17 @@ const PickupAddressSection = ({
                             message: 'Enter a valid 6-digit pincode',
                           },
                         }
+                      : isGstField
+                        ? {
+                            validate: (value: unknown) => {
+                              const gstin = String(value ?? '').trim().toUpperCase()
+                              return (
+                                !gstin ||
+                                GSTIN_REGEX.test(gstin) ||
+                                'Enter a valid 15-character GSTIN'
+                              )
+                            },
+                          }
                       : isReq
                         ? required(label)
                         : undefined
@@ -689,7 +702,13 @@ const PickupAddressSection = ({
                           required={isReq}
                           fullWidth
                           maxLength={
-                            isPincodeField ? 6 : name.startsWith('addressLine') ? 200 : undefined
+                            isPincodeField
+                              ? 6
+                              : isGstField
+                                ? 15
+                                : name.startsWith('addressLine')
+                                  ? 200
+                                  : undefined
                           }
                           error={!!fieldState.error}
                           helperText={
@@ -706,6 +725,15 @@ const PickupAddressSection = ({
                           onChange={(event) => {
                             if (isPincodeField) {
                               field.onChange(event.target.value.replace(/\D/g, '').slice(0, 6))
+                              return
+                            }
+                            if (isGstField) {
+                              field.onChange(
+                                event.target.value
+                                  .toUpperCase()
+                                  .replace(/[^0-9A-Z]/g, '')
+                                  .slice(0, 15),
+                              )
                               return
                             }
                             field.onChange(event)

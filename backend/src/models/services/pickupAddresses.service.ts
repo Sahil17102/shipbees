@@ -1,6 +1,7 @@
 // services/pickupAddresses.service.ts
 import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm'
 import { CreatePickupDto, HydratedPickupAddress, UpdatePickupDto } from '../../types/generic.types'
+import { HttpError } from '../../utils/classes'
 import { db } from '../client'
 import { courier_registration_errors } from '../schema/courierRegistrationErrors'
 import { addresses, pickupAddresses } from '../schema/pickupAddresses'
@@ -58,6 +59,28 @@ const sanitizeAddressUpdate = (value: Record<string, any> | null | undefined) =>
 }
 
 const normalizedAddressValue = (value: unknown) => String(value ?? '').trim()
+
+const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
+
+const validateAndNormalizeGstin = (value: unknown) => {
+  const gstin = String(value ?? '').trim().toUpperCase()
+  if (gstin && !GSTIN_PATTERN.test(gstin)) {
+    throw new HttpError(400, 'Enter a valid 15-character GSTIN')
+  }
+  return gstin
+}
+
+const validatePickupGstins = (data: {
+  pickup?: { gstNumber?: unknown } | null
+  rtoAddress?: { gstNumber?: unknown } | null
+}) => {
+  if (data.pickup?.gstNumber !== undefined) {
+    data.pickup.gstNumber = validateAndNormalizeGstin(data.pickup.gstNumber)
+  }
+  if (data.rtoAddress?.gstNumber !== undefined) {
+    data.rtoAddress.gstNumber = validateAndNormalizeGstin(data.rtoAddress.gstNumber)
+  }
+}
 
 const buildAmazonWarehousePayload = (pickupAddr: any, rtoAddressData?: any) => ({
   alias: pickupAddr.addressNickname || pickupAddr.contactName || `warehouse-${pickupAddr.id}`,
@@ -189,6 +212,7 @@ const logCourierRegistrationError = async ({
  */
 
 export async function createPickupAddressService(data: CreatePickupDto, userId: string) {
+  validatePickupGstins(data)
   return await db.transaction(async (txn) => {
     const existing = await txn.query.pickupAddresses.findFirst({
       where: eq(pickupAddresses.userId, userId),
@@ -451,6 +475,7 @@ export async function updatePickupAddressService(
   data: UpdatePickupDto & { id?: string },
 ) {
   try {
+    validatePickupGstins(data)
     const targetPickupId = pickupId ?? data.id
     if (!targetPickupId) throw new Error('Pickup ID is required')
 
@@ -629,6 +654,7 @@ export async function updatePickupAddressService(
     })
   } catch (error) {
     console.error('❌ Failed to update pickup address:', error)
+    if (error instanceof HttpError) throw error
     throw new Error('Failed to update pickup address')
   }
 }
