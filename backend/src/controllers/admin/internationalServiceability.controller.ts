@@ -54,6 +54,10 @@ const rules = [
 
 const POSTAL_SOURCE_BASE = 'https://download.geonames.org/export/zip'
 const supportedCountryCodes = new Set<string>(rules.map(([code]) => code))
+// GeoNames does not publish postal-code archives for these supported markets.
+// Coverage is still validated by the country rule, but directory sync must not
+// wait indefinitely for a file that is not available.
+const countriesWithoutPostalArchive = new Set(['GR', 'SA'])
 
 type SyncState = {
   status: 'idle' | 'running' | 'complete' | 'failed'
@@ -203,6 +207,10 @@ const syncPostalDirectory = async () => {
     const worker = async () => {
       while (nextCountry < countryCodes.length) {
         const countryCode = countryCodes[nextCountry++]
+        if (countriesWithoutPostalArchive.has(countryCode)) {
+          syncState.countriesCompleted += 1
+          continue
+        }
         try {
           await syncCountryPostalDirectory(countryCode)
         } catch (error: any) {
