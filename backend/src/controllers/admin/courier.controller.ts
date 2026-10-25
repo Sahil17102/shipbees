@@ -709,7 +709,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         const customerCode = String(row.clientId || '').trim()
         acc.dilliking = {
           provider: 'dilliking',
-          apiBase: row.apiBase || 'https://cloud.iclinternational.in',
+          apiBase: 'https://cloud.iclinternational.in',
           userId,
           customerCode,
           hasPassword: Boolean(String(row.password || '').trim()),

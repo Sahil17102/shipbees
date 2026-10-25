@@ -31,7 +31,7 @@ const DilliKingCredentialsPanel = ({ credentials }) => {
   useEffect(() => {
     setForm((current) => ({
       ...current,
-      apiBase: credentials?.apiBase || 'https://cloud.iclinternational.in',
+      apiBase: 'https://cloud.iclinternational.in',
       userId: credentials?.userId || '',
       customerCode: credentials?.customerCode || '',
       password: '',

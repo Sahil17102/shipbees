@@ -38,7 +38,6 @@ const safeDecrypt = (value: string) => {
 const getCredentials = async (): Promise<IclCredentials> => {
   const [row] = await db
     .select({
-      apiBase: courier_credentials.apiBase,
       userId: courier_credentials.username,
       customerCode: courier_credentials.clientId,
       password: courier_credentials.password,
@@ -47,7 +46,8 @@ const getCredentials = async (): Promise<IclCredentials> => {
     .where(eq(courier_credentials.provider, PROVIDER))
     .limit(1)
 
-  const apiBase = String(row?.apiBase || process.env.ICL_API_BASE || DEFAULT_API_BASE)
+  // The supplied production integration is host-specific. Ignore legacy DilliKing URLs.
+  const apiBase = String(process.env.ICL_API_BASE || DEFAULT_API_BASE)
     .trim()
     .replace(/\/+$/, '')
   const userId = String(row?.userId || process.env.ICL_USER_ID || '').trim()
