@@ -9,6 +9,7 @@ import {
   IconDashboard,
   IconHelpCircle,
   IconInfoCircle,
+  IconWorld,
   IconKey,
   IconLogin2,
   IconMapPin,
@@ -73,6 +74,7 @@ import CreateBlog from 'components/Blogs/CreateBlog'
 // Lazy load pricing management pages
 const B2BPricingManagement = lazy(() => import('views/Pricing/B2BPricingManagement'))
 const B2CPricingManagement = lazy(() => import('views/Pricing/B2CPricingManagement'))
+const InternationalPricingManagement = lazy(() => import('views/Pricing/InternationalPricingManagement'))
 const HolidayManagement = lazy(() => import('views/B2B/HolidayManagement'))
 
 const franchiseWorkspaceModes = {
@@ -422,6 +424,19 @@ const dashRoutes = [
           <AdminRoute>
             <Suspense fallback={<div>Loading B2C...</div>}>
               <B2CPricingManagement />
+            </Suspense>
+          </AdminRoute>
+        ),
+        layout: '/admin',
+      },
+      {
+        path: '/pricing/international',
+        name: 'International',
+        icon: <IconWorld />,
+        component: () => (
+          <AdminRoute>
+            <Suspense fallback={<div>Loading international rates...</div>}>
+              <InternationalPricingManagement />
             </Suspense>
           </AdminRoute>
         ),

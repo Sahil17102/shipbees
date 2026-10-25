@@ -48,6 +48,7 @@ import adminFranchiseRoutes from './routes/adminRoutes/franchise.routes'
 import adminManualCourierRoutes from './routes/adminRoutes/manualCourier.routes'
 import adminIndiaPostRoutes from './routes/adminRoutes/indiaPost.routes'
 import adminCrmRoutes from './routes/adminRoutes/adminCrm.routes'
+import adminInternationalRatesRoutes from './routes/adminRoutes/internationalRates.routes'
 import authRoutes from './routes/authRoutes'
 import bankAccountRoutes from './routes/bank.routes'
 import billingInvoiceRoutes from './routes/billingInvoice.routes'
@@ -273,6 +274,7 @@ app.use('/api/admin/franchise/v1', adminFranchiseRoutes)
 app.use('/api/admin/manual-couriers', adminManualCourierRoutes)
 app.use('/api/admin/indiapost', adminIndiaPostRoutes)
 app.use('/api/admin/crm', adminCrmRoutes)
+app.use('/api/admin/international', adminInternationalRatesRoutes)
 app.use('/api/admin/billing-preferences', adminBillingPreferencesRoutes)
 app.use('/api/payment-options', paymentOptionsRoutes)
 app.use('/api/weight-reconciliation', weightReconciliationRoutes)
