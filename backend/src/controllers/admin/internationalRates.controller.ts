@@ -21,6 +21,7 @@ const countries = [
 ] as const
 
 const couriers = [
+  { name: 'ICL International', service: 'International Priority', multiplier: 1 },
   { name: 'DilliKing', service: 'International Express', multiplier: 1 },
   { name: 'DHL Express', service: 'Express Worldwide', multiplier: 1.12 },
   { name: 'FedEx', service: 'International Priority', multiplier: 1.06 },
@@ -85,6 +86,22 @@ const ensureTableAndDefaults = async () => {
      on conflict (country_code, courier_name, service_type) do nothing`,
     values,
   )
+}
+
+export const getInternationalRateQuote = async (country: string, courierName: string) => {
+  await ensureTableAndDefaults()
+  const normalizedCountry = String(country || '').trim()
+  const normalizedCourier = String(courierName || '').trim()
+  if (!normalizedCountry || !normalizedCourier) return null
+  const result = await pool.query(
+    `select * from shipray_international_rate_cards
+     where is_active = true
+       and (upper(country_code) = upper($1) or lower(country_name) = lower($1))
+       and lower(courier_name) = lower($2)
+     limit 1`,
+    [normalizedCountry, normalizedCourier],
+  )
+  return result.rows[0] ? serialize(result.rows[0]) : null
 }
 
 const toNumber = (value: unknown, field: string, min = 0, max = Number.MAX_SAFE_INTEGER) => {

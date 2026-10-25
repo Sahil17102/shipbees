@@ -49,6 +49,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
   const deliveryAddressLine = watch('address') ?? ''
   const deliveryCity = watch('city') ?? ''
   const deliveryState = watch('state') ?? ''
+  const deliveryCountry = watch('country') ?? 'India'
   const length = watch('length') ?? 0
   const breadth = watch('breadth') ?? 0
   const height = watch('height') ?? 0
@@ -168,6 +169,7 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
     deliveryAddress: destinationAddressLine,
     deliveryCity: destinationCity,
     deliveryState: destinationState,
+    deliveryCountry,
     pickupAddressKey: `${originPincode}-${originAddressLine}-${originCity}-${originState}`,
     deliveryAddressKey: `${destinationPincode}-${destinationAddressLine}-${destinationCity}-${destinationState}`,
     weight: totalWeight,

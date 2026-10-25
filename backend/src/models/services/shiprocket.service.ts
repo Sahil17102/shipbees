@@ -115,6 +115,7 @@ import { DelhiveryService } from './couriers/delhivery.service'
 import { EkartService } from './couriers/ekart.service'
 import { ShadowfaxService } from './couriers/shadowfax.service'
 import { XpressbeesService } from './couriers/xpressbees.service'
+import { IclInternationalService } from './couriers/iclInternational.service'
 import {
   buildIndiaPostArticleFromShipment,
   IndiaPostService,
@@ -7144,6 +7145,11 @@ export const createB2CShipmentService = async (
           console.log(
             `[info] Derived integration_type: ${params.integration_type} from courier_id: ${params.courier_id} (courier: ${matchedCourier.name})`,
           )
+        } else if (serviceProvider === 'icl') {
+          params.integration_type = 'icl'
+          console.log(
+            `[info] Derived integration_type: ${params.integration_type} from courier_id: ${params.courier_id} (courier: ${matchedCourier.name})`,
+          )
         } else if (serviceProvider === 'manual') {
           params.integration_type = 'manual'
           console.log(
@@ -7152,7 +7158,7 @@ export const createB2CShipmentService = async (
         } else {
           throw new HttpError(
             400,
-            `Unsupported serviceProvider: ${serviceProvider}. Supported providers: delhivery, ekart, xpressbees, shadowfax, amazon, indiapost, velocity, manual.`,
+            `Unsupported serviceProvider: ${serviceProvider}. Supported providers: delhivery, ekart, xpressbees, shadowfax, amazon, indiapost, velocity, icl, manual.`,
           )
         }
       } else {
@@ -7781,11 +7787,12 @@ export const createB2CShipmentService = async (
       'amazon',
       'indiapost',
       'velocity',
+      'icl',
       'manual',
     ]
     if (!requestedIntegrationType || !allowedIntegrationTypes.includes(requestedIntegrationType)) {
       throw new Error(
-        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, shadowfax, amazon, indiapost, velocity, manual.`,
+        `Invalid integration_type: ${params.integration_type}. Supported values: delhivery, ekart, xpressbees, shadowfax, amazon, indiapost, velocity, icl, manual.`,
       )
     }
 
@@ -7797,6 +7804,7 @@ export const createB2CShipmentService = async (
       | 'amazon'
       | 'indiapost'
       | 'velocity'
+      | 'icl'
       | 'manual'
     const providerName =
       integrationType === 'delhivery'
@@ -7813,6 +7821,8 @@ export const createB2CShipmentService = async (
                   ? 'India Post'
                   : integrationType === 'velocity'
                     ? 'Velocity Shipping'
+                  : integrationType === 'icl'
+                    ? 'ICL International'
                     : String(params.courier_partner || 'Courier')
 
     if (!isReverseShipment) {
@@ -8654,6 +8664,116 @@ export const createB2CShipmentService = async (
           ratesResponse: velocityRatesResponse,
         },
       }
+    } else if (integrationType === 'icl') {
+      if (isReverseShipment) {
+        throw new HttpError(400, 'ICL international reverse booking is not supported.')
+      }
+      if (params.payment_type === 'cod') {
+        throw new HttpError(400, 'ICL international shipments must be prepaid.')
+      }
+
+      const countryCodes: Record<string, string> = {
+        australia: 'AU', austria: 'AT', belgium: 'BE', bulgaria: 'BG', canada: 'CA',
+        croatia: 'HR', cyprus: 'CY', 'czech republic': 'CZ', denmark: 'DK', estonia: 'EE',
+        finland: 'FI', france: 'FR', germany: 'DE', greece: 'GR', 'hong kong': 'HK',
+        hungary: 'HU', iceland: 'IS', ireland: 'IE', italy: 'IT', japan: 'JP', latvia: 'LV',
+        lithuania: 'LT', luxembourg: 'LU', malaysia: 'MY', malta: 'MT', mexico: 'MX',
+        netherlands: 'NL', 'new zealand': 'NZ', norway: 'NO', poland: 'PL', portugal: 'PT',
+        romania: 'RO', 'saudi arabia': 'SA', serbia: 'RS', singapore: 'SG', slovakia: 'SK',
+        slovenia: 'SI', 'south korea': 'KR', spain: 'ES', sweden: 'SE', switzerland: 'CH',
+        'united arab emirates': 'AE', 'united kingdom': 'GB', 'united states': 'US', ukraine: 'UA',
+      }
+      const consigneeCountry = String(params.consignee?.country || '').trim()
+      const destinationCode = countryCodes[consigneeCountry.toLowerCase()] || consigneeCountry.toUpperCase()
+      if (!/^[A-Z]{2}$/.test(destinationCode) || destinationCode === 'IN') {
+        throw new HttpError(400, 'Select a valid international destination country for ICL.')
+      }
+
+      const items = Array.isArray(params.order_items) ? params.order_items : []
+      const pieces = Math.max(1, items.reduce((sum, item) => sum + Number(item.qty ?? item.quantity ?? 1), 0))
+      const shipmentValue = Math.max(1, Number(params.order_amount || items.reduce(
+        (sum, item) => sum + Number(item.price || 0) * Number(item.qty ?? item.quantity ?? 1),
+        0,
+      )))
+      const weightKg = Math.max(0.001, normalizeServiceabilityWeightToGrams(params.package_weight ?? params.weight ?? 0) / 1000)
+      const content = items.map((item) => String(item.name || '').trim()).filter(Boolean).join(', ').slice(0, 200) || 'General merchandise'
+      const iclPayload = {
+        CustomerRefNo: params.order_number,
+        OriginName: 'IN',
+        DestinationName: destinationCode,
+        ShipperName: params.company?.name || params.pickup?.warehouse_name || params.pickup?.name,
+        ShipperContact: params.pickup?.name || params.company?.name || 'Shipper',
+        ShipperAdd1: params.pickup?.address,
+        ShipperAdd2: params.pickup?.address_2 || '',
+        ShipperCity: params.pickup?.city,
+        ShipperState: params.pickup?.state,
+        ShipperPin: params.pickup?.pincode,
+        ShipperTelno: params.pickup?.phone,
+        ShipperMobile: params.pickup?.phone,
+        ShipperEmail: '',
+        DocumentType: params.company?.gst ? 'GSTIN (Normal)' : '',
+        DocumentNumber: params.company?.gst || '',
+        ConsigneeName: params.consignee?.name,
+        ConsigneeContact: params.consignee?.name,
+        ConsigneeAdd1: params.consignee?.address,
+        ConsigneeAdd2: params.consignee?.address_2 || params.consignee?.locality || '',
+        ConsigneeCity: params.consignee?.city,
+        ConsigneeState: params.consignee?.state,
+        ConsigneePin: params.consignee?.pincode,
+        ConsigneeTelno: params.consignee?.phone,
+        ConsigneeMobile: params.consignee?.phone,
+        ConsigneeEmail: params.consignee?.email || '',
+        ConsigneeDocumentType: '',
+        ConsigneeDocumentNumber: '',
+        Instruction: 'International shipment booked through ShipBees',
+        VendorName: String(process.env.ICL_VENDOR_NAME || 'FDX').trim(),
+        ServiceName: String(process.env.ICL_SERVICE_NAME || 'INTERNATIONAL PRIORITY').trim(),
+        ProductCode: 'SPX',
+        Dox_Spx: 'SPX',
+        Pieces: String(pieces),
+        Weight: String(weightKg),
+        Content: content,
+        Currency: 'INR',
+        ShipmentValue: String(shipmentValue),
+        CODAmount: '',
+        CSBType: 'CSB4',
+        TermofInvoice: 'CFR',
+        ExportReason: 'SALE OF GOODS',
+        InvoiceNo: params.invoice_number || params.order_number,
+        InvoiceDate: dayjs(params.invoice_date || params.order_date || new Date()).format('DD/MM/YYYY'),
+        CompanyCode: '',
+        IsCommercial: 1,
+        RequiredPerforma: 'Y',
+        RequiredLable: 'Y',
+        Buisness_Type: 'B2C',
+        Selfinvoice: 1,
+        Dimensions: [{
+          ActualWeight: String(weightKg),
+          Vol_WeightL: String(Number(params.package_length ?? params.length ?? 1) || 1),
+          Vol_WeightW: String(Number(params.package_breadth ?? params.breadth ?? 1) || 1),
+          Vol_WeightH: String(Number(params.package_height ?? params.height ?? 1) || 1),
+        }],
+      }
+      shipmentData = await new IclInternationalService().createAwb(iclPayload)
+      const iclResponse = shipmentData?.Response || {}
+      const iclAwb = String(iclResponse?.AWBNo || '').trim()
+      if (!iclAwb) throw new HttpError(502, 'ICL shipment creation failed: AWB was not returned')
+      shipmentSuccessPackage = { waybill: iclAwb }
+      providerCourierCost = params?.courier_cost ? Number(params.courier_cost) : null
+      shipmentMeta = {
+        shipment_id: iclAwb,
+        awb_number: iclAwb,
+        courier_name: 'ICL International',
+        courier_id: params.courier_id ? Number(params.courier_id) : 9102,
+        label: iclResponse?.Label || iclResponse?.LabelUrl || undefined,
+        manifest: undefined,
+        courier_cost: providerCourierCost,
+        sort_code: null,
+        provider_reference: iclAwb,
+        provider_request_id: params.order_number,
+        provider_service: 'INTERNATIONAL PRIORITY',
+        provider_mode: 'air',
+      }
     } else if (integrationType === 'amazon') {
       console.log('Using Amazon Shipping API...')
       const amazonCredentials = await getStoredAmazonShippingCredentials()
@@ -8977,7 +9097,7 @@ export const createB2CShipmentService = async (
     }
 
     let finalSlabbedFreight = slabbedFreight
-    finalSlabbedFreight = await computeB2CFreightForOrder({
+    if (integrationType !== 'icl') finalSlabbedFreight = await computeB2CFreightForOrder({
       userId,
       courierId: courierIdForRate,
       serviceProvider: params.integration_type ?? null,

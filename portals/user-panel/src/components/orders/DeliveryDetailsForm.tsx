@@ -83,7 +83,7 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
     { name: 'buyerName', label: 'Name' },
     { name: 'buyerPhone', label: 'Phone' },
     { name: 'buyerEmail', label: 'Email' },
-    { name: 'pincode', label: 'Pincode' },
+    { name: 'pincode', label: isIndia ? 'PIN code' : 'Postal / ZIP code' },
     { name: 'city', label: 'City' },
     { name: 'state', label: 'State' },
     { name: 'address', label: 'Address' },
@@ -125,6 +125,9 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
                 setValue('pincode', '', { shouldValidate: false })
                 setValue('city', '', { shouldValidate: false })
                 setValue('state', '', { shouldValidate: false })
+                if (type === 'b2c' && event.target.value !== 'India') {
+                  setValue('orderType', 'prepaid' as any, { shouldValidate: true })
+                }
               }}
             >
               {SHIPPING_COUNTRIES.map((item) => <MenuItem key={item.code} value={item.name}>{item.name}</MenuItem>)}
@@ -174,9 +177,7 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
                   {...field}
                   onChange={(event) => {
                     if (fieldItem.name === 'pincode') {
-                      field.onChange(isIndia
-                        ? normalizePincode(event.target.value)
-                        : event.target.value.toUpperCase().replace(/[^A-Z0-9 -]/g, '').slice(0, 12))
+                      field.onChange(event.target.value.toUpperCase().replace(/[^A-Z0-9 -]/g, '').slice(0, isIndia ? 6 : 12))
                       return
                     }
                     field.onChange(event)
@@ -184,6 +185,8 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
                   multiline={isAddressField}
                   rows={isAddressField ? 1 : undefined}
                   maxLength={isAddressField ? 200 : undefined}
+                  inputMode={fieldItem.name === 'pincode' ? (isIndia ? 'numeric' : 'text') : undefined}
+                  placeholder={fieldItem.name === 'pincode' && !isIndia ? 'e.g. A0A 1A1' : undefined}
                   disabled={isNonEditable}
                   error={!!getFieldError(fieldItem.name)}
                   helperText={getFieldError(fieldItem.name)}

@@ -100,6 +100,7 @@ export type B2CFormData = {
     | 'indiapost'
     | 'velocity'
     | 'icarry'
+    | 'icl'
   pickupAddress?: string
   pickupLocationPOCName?: string
   courierPartnerId: string

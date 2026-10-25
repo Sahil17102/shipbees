@@ -4,6 +4,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { Request, Response } from 'express'
 import { db } from '../models/client'
 import { couriers } from '../models/schema/couriers'
+import { courier_credentials } from '../models/schema/courierCredentials'
 import { shippingRates, shippingRateSlabs } from '../models/schema/shippingRates'
 import {
   computeB2CRateCardCharge,
@@ -33,6 +34,8 @@ import {
 } from '../utils/delhiveryCourier'
 import { calculateGstBreakup } from '../utils/gst'
 import { extractOrderAmountFromBody } from '../utils/orderAmount'
+import { getInternationalRateQuote } from './admin/internationalRates.controller'
+import { readConnectionStatus } from '../models/services/internationalCourierCatalog.service'
 import {
   getManualB2BRateOptions,
   getManualB2CRateOptions,
@@ -683,6 +686,70 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'order_amount must be a non-negative number',
+      })
+    }
+
+    const deliveryCountry = String(
+      req.body.deliveryCountry ?? req.body.delivery_country ?? req.body.country ?? 'India',
+    ).trim() || 'India'
+    const isInternational = deliveryCountry.toLowerCase() !== 'india'
+    if (isInternational) {
+      const [[iclCourier], [credential]] = await Promise.all([
+        db.select({ id: couriers.id, name: couriers.name, isEnabled: couriers.isEnabled })
+          .from(couriers)
+          .where(and(eq(couriers.id, 9102), eq(couriers.serviceProvider, 'icl')))
+          .limit(1),
+        db.select({ metadata: courier_credentials.metadata })
+          .from(courier_credentials)
+          .where(eq(courier_credentials.provider, 'icl'))
+          .limit(1),
+      ])
+      const connection = readConnectionStatus(credential?.metadata)
+      if (!iclCourier?.isEnabled || !connection.connected) {
+        return res.json({ success: true, data: [] })
+      }
+
+      const rate = await getInternationalRateQuote(deliveryCountry, 'ICL International')
+      if (!rate) return res.json({ success: true, data: [] })
+
+      const weightKg = Math.max(0.001, Number(weight || 0) > 50 ? Number(weight) / 1000 : Number(weight))
+      const excessKg = Math.max(0, weightKg - Number(rate.baseWeightKg || 0.5))
+      const billedExcessKg = Math.ceil(excessKg * 2) / 2
+      const freight = Number(rate.baseRate) + billedExcessKg * Number(rate.additionalRatePerKg)
+      const fuel = freight * (Number(rate.fuelSurchargePercent) / 100)
+      const insurance = Number(orderAmountResult.value || 0) * (Number(rate.insurancePercent) / 100)
+      const preTax = freight + fuel + Number(rate.handlingFee) + Number(rate.customsClearanceFee) + insurance
+      const tax = preTax * (Number(rate.taxPercent) / 100)
+      const total = Math.round((preTax + tax) * 100) / 100
+      const prepaidOnly = String(payment_type || '').toLowerCase() !== 'cod'
+
+      return res.json({
+        success: true,
+        data: [{
+          id: 9102,
+          courier_id: 9102,
+          name: 'ICL International',
+          displayName: `${rate.serviceType} · ${rate.countryName}`,
+          courier_option_key: `9102__icl__${rate.id}`,
+          integration_type: 'icl',
+          serviceProvider: 'icl',
+          edd: '5-10 Days',
+          cod: false,
+          prepaid: true,
+          booking_available: prepaidOnly,
+          can_book: prepaidOnly,
+          booking_blocked_reason: prepaidOnly ? null : 'ICL international shipments must be prepaid.',
+          rate: total,
+          freight_charges: total,
+          other_charges: 0,
+          cod_charges: 0,
+          courier_cost_estimate: total,
+          total_charges: total,
+          wallet_debit_amount: total,
+          chargeable_weight: weightKg,
+          localRates: { forward: { rate: total, chargeable_weight: weightKg } },
+          international_rate: rate,
+        }],
       })
     }
 
