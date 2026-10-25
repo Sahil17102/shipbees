@@ -52,6 +52,7 @@ import { db } from '../client'
 import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
 import { invoicePreferences } from '../schema/invoicePreferences'
+import { kyc } from '../schema/kyc'
 import { ndr_events } from '../schema/ndr'
 import { rto_events } from '../schema/rto'
 import { tracking_events } from '../schema/trackingEvents'
@@ -8705,6 +8706,26 @@ export const createB2CShipmentService = async (
       const invoiceNumber = String(params.invoice_number || params.order_number).trim()
       const invoiceDate = dayjs(params.invoice_date || params.order_date || new Date()).format('DD/MM/YYYY')
       const serviceName = String(process.env.ICL_SERVICE_NAME || 'INTERNATIONAL PRIORITY').trim()
+      const [shipperKyc] = await db
+        .select({
+          gstin: kyc.gstin,
+          panNumber: kyc.panNumber,
+        })
+        .from(kyc)
+        .where(eq(kyc.userId, userId))
+        .limit(1)
+      const shipperGstin = String(
+        params.company?.gst || params.pickup?.gst_number || shipperKyc?.gstin || '',
+      ).trim()
+      const shipperPan = String(shipperKyc?.panNumber || '').trim().toUpperCase()
+      const shipperDocumentType = shipperGstin ? 'GSTIN (Normal)' : shipperPan ? 'Pan Number' : ''
+      const shipperDocumentNumber = shipperGstin || shipperPan
+      if (!shipperDocumentType || !shipperDocumentNumber) {
+        throw new HttpError(
+          400,
+          'ICL international booking requires a verified shipper GSTIN or PAN in KYC.',
+        )
+      }
       const invoiceProducts: Product[] = items.map((item) => ({
         name: String(item.name || 'Product').trim() || 'Product',
         sku: String(item.sku || '').trim(),
@@ -8778,8 +8799,8 @@ export const createB2CShipmentService = async (
         ShipperTelno: params.pickup?.phone,
         ShipperMobile: params.pickup?.phone,
         ShipperEmail: '',
-        DocumentType: params.company?.gst ? 'GSTIN (Normal)' : '',
-        DocumentNumber: params.company?.gst || '',
+        DocumentType: shipperDocumentType,
+        DocumentNumber: shipperDocumentNumber,
         ConsigneeName: params.consignee?.name,
         ConsigneeContact: params.consignee?.name,
         ConsigneeAdd1: params.consignee?.address,
@@ -8812,7 +8833,9 @@ export const createB2CShipmentService = async (
         IsCommercial: 1,
         RequiredPerforma: 'Y',
         RequiredLable: 'Y',
-        Buisness_Type: 'B2C',
+        // ICL's supplied booking contract uses its own customs classification here.
+        // It must not be inferred from ShipBees' B2C/B2B order-tab terminology.
+        Buisness_Type: 'B2B',
         Selfinvoice: 1,
         KYCDocumentType: 'PERFORMA Invoice',
         KYCImage: performaInvoice.toString('base64'),

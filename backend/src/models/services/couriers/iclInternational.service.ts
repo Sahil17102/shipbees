@@ -108,6 +108,9 @@ export class IclInternationalService {
     if (!Array.isArray(payload?.Dimensions) || payload.Dimensions.length === 0) {
       throw new Error('At least one Dimensions entry is required')
     }
+    if (!String(payload?.DocumentType || '').trim() || !String(payload?.DocumentNumber || '').trim()) {
+      throw new Error('ICL bookings require the shipper KYC document type and number')
+    }
     if (Number(payload?.Selfinvoice) === 1) {
       if (String(payload?.KYCDocumentType || '').trim().toUpperCase() !== 'PERFORMA INVOICE') {
         throw new Error('ICL self-invoice bookings require KYCDocumentType PERFORMA Invoice')
