@@ -7,6 +7,10 @@ import {
   DilliKingService,
 } from '../../models/services/couriers/dilliking.service'
 import { encryptSecret } from '../../utils/secretEncryption'
+import {
+  resetCourierConnectionStatus,
+  setCourierConnectionStatus,
+} from '../../models/services/internationalCourierCatalog.service'
 
 const PROVIDER = 'dilliking'
 const DEFAULT_API_BASE = 'https://api.dilliking.com'
@@ -48,6 +52,7 @@ export const updateDilliKingCredentialsController = async (req: Request, res: Re
       })
     }
     clearDilliKingTokenCache()
+    await resetCourierConnectionStatus(PROVIDER)
     return res.json({ success: true, data: { provider: PROVIDER, apiBase, email, hasPassword: true } })
   } catch (error: any) {
     console.error('[dilliking:credentials]', error)
@@ -58,8 +63,10 @@ export const updateDilliKingCredentialsController = async (req: Request, res: Re
 export const testDilliKingCredentialsController = async (_req: Request, res: Response) => {
   try {
     const data = await new DilliKingService().testConnection()
+    await setCourierConnectionStatus(PROVIDER, true, 'Authentication successful')
     return res.json({ success: true, message: 'DilliKing authentication successful', data })
   } catch (error: any) {
+    await setCourierConnectionStatus(PROVIDER, false, error?.message || 'Authentication failed').catch(() => undefined)
     return res.status(400).json({ success: false, message: error?.message || 'DilliKing authentication failed' })
   }
 }

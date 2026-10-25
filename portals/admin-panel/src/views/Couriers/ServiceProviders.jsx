@@ -48,7 +48,7 @@ const ServiceProviders = () => {
         Service Providers
       </Text>
       <Text fontSize="sm" color="gray.500">
-        Manage enabled courier providers for Delhivery B2C and Velocity Shipping.
+        Manage courier providers and verify whether their API credentials are connected.
       </Text>
       <Table variant="simple">
         <Thead>
@@ -57,13 +57,14 @@ const ServiceProviders = () => {
             <Th isNumeric>Total Couriers</Th>
             <Th isNumeric>Enabled Couriers</Th>
             <Th>Status</Th>
+            <Th>Credentials</Th>
             <Th textAlign="right">Toggle</Th>
           </Tr>
         </Thead>
         <Tbody>
           {providers.length === 0 ? (
             <Tr>
-              <Td colSpan={5} textAlign="center">
+              <Td colSpan={6} textAlign="center">
                 <Text color="gray.500">No service provider data found.</Text>
               </Td>
             </Tr>
@@ -77,6 +78,15 @@ const ServiceProviders = () => {
                   <Text fontWeight="semibold" color={p.isEnabled ? 'green.500' : 'red.500'}>
                     {p.isEnabled ? 'Enabled' : 'Disabled'}
                   </Text>
+                </Td>
+                <Td>
+                  {p.connected === null ? (
+                    <Text color="gray.500" fontWeight="semibold">Standard integration</Text>
+                  ) : (
+                    <Text fontWeight="semibold" color={p.connected ? 'green.500' : p.credentialsConfigured ? 'orange.500' : 'red.500'}>
+                      {p.connected ? 'Connected' : p.credentialsConfigured ? 'Test required' : 'Setup required'}
+                    </Text>
+                  )}
                 </Td>
                 <Td>
                   <HStack justify="flex-end">

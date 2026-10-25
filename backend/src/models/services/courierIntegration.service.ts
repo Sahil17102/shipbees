@@ -1,11 +1,17 @@
 import { randomUUID } from 'crypto'
-import { and, asc, desc, eq, gte, ilike, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, notInArray, sql } from 'drizzle-orm'
 import type { ShippingRateFilters } from '../../controllers/admin/courier.controller'
 import { db } from '../client'
 import { couriers } from '../schema/couriers'
 import { courierSummary } from '../schema/courierSummary'
 import { shippingRates } from '../schema/shippingRates'
 import { zones } from '../schema/zones'
+import { courier_credentials } from '../schema/courierCredentials'
+import {
+  ensureInternationalCourierCatalog,
+  INTERNATIONAL_COURIER_PROVIDERS,
+  readConnectionStatus,
+} from './internationalCourierCatalog.service'
 import { getUserPlanId } from './plan.service'
 import {
   fetchShippingRateSlabs,
@@ -52,6 +58,21 @@ export const buildCourierWhereClause = (filters: CourierFilters = {}) => {
 
   return conditions.length ? and(...conditions) : undefined
 }
+
+const buildUserCourierWhereClause = async (filters: CourierFilters = {}) => {
+  await ensureInternationalCourierCatalog()
+  const credentialRows = await db.select({
+    provider: courier_credentials.provider,
+    metadata: courier_credentials.metadata,
+  }).from(courier_credentials).where(inArray(courier_credentials.provider, [...INTERNATIONAL_COURIER_PROVIDERS]))
+  const connected = new Set(
+    credentialRows.filter((row) => readConnectionStatus(row.metadata).connected).map((row) => row.provider),
+  )
+  const hiddenProviders = INTERNATIONAL_COURIER_PROVIDERS.filter((provider) => !connected.has(provider))
+  const conditions = [buildCourierWhereClause(filters), eq(couriers.isEnabled, true)].filter(Boolean) as any[]
+  if (hiddenProviders.length) conditions.push(notInArray(couriers.serviceProvider, [...hiddenProviders]))
+  return and(...conditions)
+}
 // =========================
 // 🛠 Helper: Sort
 // =========================
@@ -75,22 +96,30 @@ export const getAllCouriersPaginated = async ({
   filters,
   sortBy,
 }: GetAllCouriersPaginatedParams) => {
-  const whereClause = buildCourierWhereClause(filters)
+  const whereClause = await buildUserCourierWhereClause(filters)
 
-  return await db
+  const rows = await db
     .select()
     .from(couriers)
     .where(whereClause)
     .orderBy(getSortClause(sortBy))
     .limit(limit)
     .offset(offset)
+  const credentialRows = await db.select({ provider: courier_credentials.provider, metadata: courier_credentials.metadata })
+    .from(courier_credentials).where(inArray(courier_credentials.provider, [...INTERNATIONAL_COURIER_PROVIDERS]))
+  const connectionMap = new Map(credentialRows.map((row) => [row.provider, readConnectionStatus(row.metadata)]))
+  return rows.map((courier) => ({
+    ...courier,
+    connectionStatus: connectionMap.get(courier.serviceProvider)?.connectionStatus || 'not_applicable',
+    connected: connectionMap.get(courier.serviceProvider)?.connected ?? null,
+  }))
 }
 
 // =========================
 // 📊 Get Courier Count (with Filters)
 // =========================
 export const getCourierCount = async (filters: CourierFilters = {}) => {
-  const whereClause = buildCourierWhereClause(filters)
+  const whereClause = await buildUserCourierWhereClause(filters)
 
   const [result] = await db
     .select({ count: sql<number>`count(*)` })

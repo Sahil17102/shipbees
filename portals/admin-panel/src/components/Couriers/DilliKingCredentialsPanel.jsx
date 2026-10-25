@@ -47,7 +47,10 @@ const DilliKingCredentialsPanel = ({ credentials }) => {
   })
   const testMutation = useMutation({
     mutationFn: testDilliKingCredentials,
-    onSuccess: () => toast({ title: 'DilliKing authentication successful', status: 'success' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courierCredentials'] })
+      toast({ title: 'DilliKing authentication successful', status: 'success' })
+    },
     onError: (error) => toast({ title: 'DilliKing authentication failed', description: error.message, status: 'error' }),
   })
   const trackingMutation = useMutation({
@@ -63,8 +66,8 @@ const DilliKingCredentialsPanel = ({ credentials }) => {
           <Flex w="40px" h="40px" borderRadius="lg" bg="purple.600" color="white" align="center" justify="center"><IconPlaneDeparture size={22} /></Flex>
           <Box><Text fontWeight="800">DilliKing International API</Text><Text fontSize="sm" color="gray.600">Token login · AWB generation · live tracking</Text></Box>
         </Flex>
-        <Badge colorScheme={credentials?.configured ? 'green' : 'orange'} px={3} py={1} borderRadius="full">
-          {credentials?.configured ? 'Configured' : 'Setup required'}
+        <Badge colorScheme={credentials?.connected ? 'green' : credentials?.configured ? 'orange' : 'red'} px={3} py={1} borderRadius="full">
+          {credentials?.connected ? 'Connected' : credentials?.configured ? 'Test required' : 'Setup required'}
         </Badge>
       </Flex>
 

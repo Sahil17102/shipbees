@@ -38,6 +38,25 @@ const CourierList: FC<CourierListProps> = ({
       ),
     },
     {
+      id: 'serviceProvider',
+      label: 'Service Provider',
+      minWidth: 150,
+      render: (val) => <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>{String(val || '-')}</Typography>,
+    },
+    {
+      id: 'connectionStatus',
+      label: 'API Status',
+      minWidth: 120,
+      render: (val) => (
+        <Chip
+          label={val === 'connected' ? 'Connected' : val === 'not_applicable' || !val ? 'Available' : 'Not connected'}
+          size="small"
+          color={val === 'connected' ? 'success' : val === 'not_applicable' || !val ? 'default' : 'warning'}
+          variant={val === 'connected' ? 'filled' : 'outlined'}
+        />
+      ),
+    },
+    {
       id: 'masterCompany',
       label: 'Master Company',
       minWidth: 180,

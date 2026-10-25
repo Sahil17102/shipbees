@@ -48,8 +48,12 @@ import {
   upsertVelocityCouriers,
   type VelocityOperation,
 } from '../../models/services/couriers/velocity.service'
+import {
+  ensureInternationalCourierCatalog,
+  readConnectionStatus,
+} from '../../models/services/internationalCourierCatalog.service'
 
-const ADMIN_VISIBLE_COURIER_PROVIDERS = ['delhivery', 'velocity']
+const ADMIN_VISIBLE_COURIER_PROVIDERS = ['delhivery', 'velocity', 'dilliking', 'icl']
 
 export interface ShippingRateFilters {
   courier_name?: string[]
@@ -151,6 +155,7 @@ export const getShippingRatesController = async (req: Request, res: Response) =>
 
 export const getAllCouriersController = async (req: Request, res: Response) => {
   try {
+    await ensureInternationalCourierCatalog()
     const courierList = await db
       .select({
         id: couriers.id,
@@ -163,7 +168,13 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
       .where(inArray(couriers.serviceProvider, ADMIN_VISIBLE_COURIER_PROVIDERS))
       .orderBy(desc(couriers.createdAt))
 
-    res.json({ success: true, data: courierList })
+    const credentialRows = await db.select({ provider: courier_credentials.provider, metadata: courier_credentials.metadata })
+      .from(courier_credentials).where(inArray(courier_credentials.provider, ['dilliking', 'icl']))
+    const connections = new Map(credentialRows.map((row) => [row.provider, readConnectionStatus(row.metadata)]))
+    res.json({ success: true, data: courierList.map((courier) => ({
+      ...courier,
+      ...(connections.has(courier.serviceProvider) ? connections.get(courier.serviceProvider) : {}),
+    })) })
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false })
@@ -172,6 +183,7 @@ export const getAllCouriersController = async (req: Request, res: Response) => {
 
 export const getAllCouriersListController = async (req: Request, res: Response) => {
   try {
+    await ensureInternationalCourierCatalog()
     const { search, serviceProvider, businessType } = req.query
 
     const whereClauses = [inArray(couriers.serviceProvider, ADMIN_VISIBLE_COURIER_PROVIDERS)]
@@ -219,7 +231,14 @@ export const getAllCouriersListController = async (req: Request, res: Response) 
       .where(whereCondition)
       .orderBy(desc(couriers.createdAt))
 
-    res.json({ success: true, data: courierList })
+    const credentialRows = await db.select({ provider: courier_credentials.provider, metadata: courier_credentials.metadata })
+      .from(courier_credentials).where(inArray(courier_credentials.provider, ['dilliking', 'icl']))
+    const connections = new Map(credentialRows.map((row) => [row.provider, readConnectionStatus(row.metadata)]))
+    res.json({ success: true, data: courierList.map((courier) => ({
+      ...courier,
+      connectionStatus: connections.get(courier.serviceProvider)?.connectionStatus || 'not_applicable',
+      connected: connections.get(courier.serviceProvider)?.connected ?? null,
+    })) })
   } catch (err) {
     console.error(err)
     res.status(500).json({ success: false, message: 'Failed to fetch couriers' })
@@ -289,6 +308,7 @@ export const updateCourierStatusController = async (req: Request, res: Response)
 
 export const getServiceProvidersController = async (req: Request, res: Response) => {
   try {
+    await ensureInternationalCourierCatalog()
     // Only expose the providers actively managed in the admin courier UI.
     const allowedProviders = ADMIN_VISIBLE_COURIER_PROVIDERS
 
@@ -317,12 +337,33 @@ export const getServiceProvidersController = async (req: Request, res: Response)
 
     // Ensure allowed providers are always visible in admin UI,
     // even when no rows exist in couriers table yet.
-    const providers = allowedProviders.map((provider) => ({
-      serviceProvider: provider,
-      totalCouriers: byProvider.get(provider)?.totalCouriers ?? 0,
-      enabledCouriers: byProvider.get(provider)?.enabledCouriers ?? 0,
-      isEnabled: byProvider.get(provider)?.isEnabled ?? false,
-    }))
+    const credentialRows = await db.select({
+      provider: courier_credentials.provider,
+      username: courier_credentials.username,
+      password: courier_credentials.password,
+      clientId: courier_credentials.clientId,
+      metadata: courier_credentials.metadata,
+    }).from(courier_credentials).where(inArray(courier_credentials.provider, ['dilliking', 'icl']))
+    const credentialMap = new Map(credentialRows.map((row) => [row.provider, row]))
+    const providers = allowedProviders.map((provider) => {
+      const credential = credentialMap.get(provider)
+      const configured = provider === 'icl'
+        ? Boolean(credential?.username && credential?.clientId && credential?.password)
+        : provider === 'dilliking'
+          ? Boolean(credential?.username && credential?.password)
+          : null
+      const connection = readConnectionStatus(credential?.metadata)
+      return {
+        serviceProvider: provider,
+        totalCouriers: byProvider.get(provider)?.totalCouriers ?? 0,
+        enabledCouriers: byProvider.get(provider)?.enabledCouriers ?? 0,
+        isEnabled: byProvider.get(provider)?.isEnabled ?? false,
+        credentialsConfigured: configured,
+        connectionStatus: configured === null ? 'not_applicable' : connection.connectionStatus,
+        connected: configured === null ? null : connection.connected,
+        connectionCheckedAt: connection.connectionCheckedAt,
+      }
+    })
 
     res.json({ success: true, data: providers })
   } catch (err) {
@@ -579,6 +620,9 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         email: '',
         hasPassword: false,
         configured: false,
+        connected: false,
+        connectionStatus: 'untested',
+        connectionCheckedAt: '',
       },
       icl: {
         provider: 'icl',
@@ -587,6 +631,9 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         customerCode: '',
         hasPassword: false,
         configured: false,
+        connected: false,
+        connectionStatus: 'untested',
+        connectionCheckedAt: '',
       },
     }
 
@@ -723,6 +770,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           email,
           hasPassword: Boolean(String(row.password || '').trim()),
           configured: Boolean(email && String(row.password || '').trim()),
+          ...readConnectionStatus(row.metadata),
         }
       } else if (provider === 'icl') {
         const userId = String(row.username || '').trim()
@@ -734,6 +782,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           customerCode,
           hasPassword: Boolean(String(row.password || '').trim()),
           configured: Boolean(userId && customerCode && String(row.password || '').trim()),
+          ...readConnectionStatus(row.metadata),
         }
       }
       return acc

@@ -65,17 +65,23 @@ const Couriers = () => {
   const [formData, setFormData] = useState({ businessType: ['b2c', 'b2b'] })
   const toast = useToast()
 
-  const columnKeys = ['id', 'name', 'serviceProvider', 'businessType', 'isEnabled', 'createdAt']
+  const columnKeys = ['id', 'name', 'serviceProvider', 'connectionStatus', 'businessType', 'isEnabled', 'createdAt']
   const captions = [
     'Courier ID',
     'Courier Name',
     'Service Provider',
+    'Connection',
     'Business Type',
     'Status',
     'Created At',
   ]
 
   const renderers = {
+    connectionStatus: (value) => (
+      <Badge colorScheme={value === 'connected' ? 'green' : value === 'not_applicable' ? 'gray' : 'orange'}>
+        {value === 'connected' ? 'Connected' : value === 'not_applicable' ? 'Standard' : 'Not connected'}
+      </Badge>
+    ),
     isEnabled: (value) => (
       <Text fontWeight="semibold" color={value ? 'green.500' : 'red.500'}>
         {value ? 'Enabled' : 'Disabled'}

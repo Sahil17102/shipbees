@@ -4,6 +4,10 @@ import { db } from '../../models/client'
 import { courier_credentials } from '../../models/schema/courierCredentials'
 import { IclInternationalService } from '../../models/services/couriers/iclInternational.service'
 import { encryptSecret } from '../../utils/secretEncryption'
+import {
+  resetCourierConnectionStatus,
+  setCourierConnectionStatus,
+} from '../../models/services/internationalCourierCatalog.service'
 
 const PROVIDER = 'icl'
 const API_BASE = 'https://cloud.iclinternational.in'
@@ -39,6 +43,7 @@ export const updateIclCredentialsController = async (req: Request, res: Response
         metadata: {},
       })
     }
+    await resetCourierConnectionStatus(PROVIDER)
     return res.json({ success: true, data: { provider: PROVIDER, apiBase: API_BASE, userId, customerCode, hasPassword: true } })
   } catch (error: any) {
     console.error('[icl:credentials]', error)
@@ -49,8 +54,10 @@ export const updateIclCredentialsController = async (req: Request, res: Response
 export const testIclCredentialsController = async (_req: Request, res: Response) => {
   try {
     const data = await new IclInternationalService().testConnection()
+    await setCourierConnectionStatus(PROVIDER, true, 'Credentials accepted')
     return res.json({ success: true, message: 'ICL credentials accepted; no shipment was created', data })
   } catch (error: any) {
+    await setCourierConnectionStatus(PROVIDER, false, error?.message || 'Credential check failed').catch(() => undefined)
     return res.status(400).json({ success: false, message: error?.message || 'ICL credential check failed' })
   }
 }

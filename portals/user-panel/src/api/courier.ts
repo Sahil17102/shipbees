@@ -21,6 +21,10 @@ export interface Courier {
   courierType?: number | null
   isHyperlocal?: boolean
   isOwnKeyCourier?: boolean
+  serviceProvider?: string | null
+  isEnabled?: boolean
+  connected?: boolean | null
+  connectionStatus?: string | null
   ownkeyCourierId?: number | null
   useSrPostcodes?: boolean
   serviceType?: number | null

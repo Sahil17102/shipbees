@@ -34,7 +34,10 @@ const IclCredentialsPanel = ({ credentials }) => {
   })
   const testMutation = useMutation({
     mutationFn: testIclCredentials,
-    onSuccess: () => toast({ title: 'ICL production credentials accepted', description: 'No shipment was created.', status: 'success' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courierCredentials'] })
+      toast({ title: 'ICL production credentials accepted', description: 'No shipment was created.', status: 'success' })
+    },
     onError: (error) => toast({ title: 'ICL credential check failed', description: error.message, status: 'error' }),
   })
 
@@ -45,7 +48,7 @@ const IclCredentialsPanel = ({ credentials }) => {
           <Flex w="40px" h="40px" borderRadius="lg" bg="blue.700" color="white" align="center" justify="center"><IconPlaneDeparture size={22} /></Flex>
           <Box><Text fontWeight="800">ICL International Production API</Text><Text fontSize="sm" color="gray.600">Separate ICL account · direct JSON AWB booking</Text></Box>
         </Flex>
-        <Badge colorScheme={credentials?.configured ? 'green' : 'orange'} px={3} py={1} borderRadius="full">{credentials?.configured ? 'Configured' : 'Setup required'}</Badge>
+        <Badge colorScheme={credentials?.connected ? 'green' : credentials?.configured ? 'orange' : 'red'} px={3} py={1} borderRadius="full">{credentials?.connected ? 'Connected' : credentials?.configured ? 'Test required' : 'Setup required'}</Badge>
       </Flex>
       <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
         <FormControl><FormLabel>API Base URL</FormLabel><Input bg="gray.100" value={form.apiBase} isReadOnly /></FormControl>
