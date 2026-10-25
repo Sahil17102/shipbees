@@ -74,7 +74,21 @@ let syncState: SyncState = {
 }
 
 let postalSchemaPromise: Promise<void> | null = null
+let postalSearchIndexPromise: Promise<void> | null = null
 let postalStatsCache: { expiresAt: number; value: Awaited<ReturnType<typeof loadPostalStats>> } | null = null
+
+const ensurePostalSearchIndex = () => {
+  if (postalSearchIndexPromise) return
+  postalSearchIndexPromise = (async () => {
+    await pool.query('create extension if not exists pg_trgm')
+    await pool.query(`create index concurrently if not exists shipray_intl_postal_search_trgm_idx
+      on shipray_international_postal_codes using gin
+      ((postal_code || ' ' || place_name || ' ' || admin_name) gin_trgm_ops)`)
+  })().catch((error: any) => {
+    postalSearchIndexPromise = null
+    console.warn('[international-postal-indexes]', error?.message || error)
+  })
+}
 
 const ensurePostalTable = async () => {
   if (postalSchemaPromise) return postalSchemaPromise
@@ -95,14 +109,9 @@ const ensurePostalTable = async () => {
     `)
     await pool.query(`create index if not exists shipray_intl_postal_country_code_idx
       on shipray_international_postal_codes (country_code, postal_code)`)
-    try {
-      await pool.query('create extension if not exists pg_trgm')
-      await pool.query(`create index if not exists shipray_intl_postal_search_trgm_idx
-        on shipray_international_postal_codes using gin
-        ((postal_code || ' ' || place_name || ' ' || admin_name) gin_trgm_ops)`)
-    } catch (error: any) {
-      console.warn('[international-postal-indexes]', error?.message || error)
-    }
+    // Building a GIN index for nearly a million rows can take time. Start it
+    // concurrently and do not block serviceability reads while it is created.
+    ensurePostalSearchIndex()
   })().catch((error) => {
     postalSchemaPromise = null
     throw error
