@@ -7543,7 +7543,12 @@ export const createB2CShipmentService = async (
     slabs: null,
   }
 
-  if (courierIdForRate && freightOriginPincode && freightDestinationPincode) {
+  if (
+    String(params.integration_type || '').trim().toLowerCase() !== 'icl' &&
+    courierIdForRate &&
+    freightOriginPincode &&
+    freightDestinationPincode
+  ) {
     try {
       const computedFreight = await computeB2CFreightForOrder({
         userId,
