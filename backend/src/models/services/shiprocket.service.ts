@@ -8702,6 +8702,68 @@ export const createB2CShipmentService = async (
       )))
       const weightKg = Math.max(0.001, normalizeServiceabilityWeightToGrams(params.package_weight ?? params.weight ?? 0) / 1000)
       const content = items.map((item) => String(item.name || '').trim()).filter(Boolean).join(', ').slice(0, 200) || 'General merchandise'
+      const invoiceNumber = String(params.invoice_number || params.order_number).trim()
+      const invoiceDate = dayjs(params.invoice_date || params.order_date || new Date()).format('DD/MM/YYYY')
+      const serviceName = String(process.env.ICL_SERVICE_NAME || 'INTERNATIONAL PRIORITY').trim()
+      const invoiceProducts: Product[] = items.map((item) => ({
+        name: String(item.name || 'Product').trim() || 'Product',
+        sku: String(item.sku || '').trim(),
+        qty: Math.max(1, Number(item.qty ?? item.quantity ?? 1) || 1),
+        price: Math.max(0, Number(item.price || 0) || 0),
+        hsn: String(item.hsn || item.hsnCode || '').trim(),
+        discount: Math.max(0, Number(item.discount || 0) || 0),
+        tax_rate: Math.max(0, Number(item.tax_rate ?? 0) || 0),
+      }))
+      if (invoiceProducts.length === 0) {
+        invoiceProducts.push({
+          name: content,
+          sku: '',
+          qty: pieces,
+          price: shipmentValue / pieces,
+          hsn: '',
+          discount: 0,
+          tax_rate: 0,
+        })
+      }
+
+      // ICL treats Selfinvoice=1 as a request to attach the shipment's performa invoice.
+      // Their production API rejects the booking unless both the exact document type and
+      // a base64-encoded PDF are supplied as KYCDocumentType/KYCImage.
+      const performaInvoice = await generateInvoicePDF({
+        invoiceNumber,
+        invoiceDate,
+        invoiceAmount: shipmentValue,
+        buyerName: String(params.consignee?.name || ''),
+        buyerPhone: String(params.consignee?.phone || ''),
+        buyerEmail: String(params.consignee?.email || ''),
+        buyerAddress: String(params.consignee?.address || ''),
+        buyerCity: String(params.consignee?.city || ''),
+        buyerState: String(params.consignee?.state || ''),
+        buyerPincode: String(params.consignee?.pincode || ''),
+        products: invoiceProducts,
+        shippingCharges: 0,
+        transactionFee: 0,
+        discount: 0,
+        prepaidAmount: 0,
+        orderType: 'prepaid',
+        courierName: 'ICL International',
+        courierId: String(params.courier_id || 9102),
+        companyName: String(params.company?.name || params.pickup?.warehouse_name || 'Shipper'),
+        companyGST: String(params.company?.gst || ''),
+        sellerName: String(params.company?.name || params.pickup?.warehouse_name || 'Shipper'),
+        sellerAddress: [params.pickup?.address, params.pickup?.address_2, params.pickup?.city, params.pickup?.state, params.pickup?.pincode]
+          .map((value) => String(value || '').trim())
+          .filter(Boolean)
+          .join(', '),
+        orderId: String(params.order_number || ''),
+        serviceType: serviceName,
+        pickupPincode: String(params.pickup?.pincode || ''),
+        deliveryPincode: String(params.consignee?.pincode || ''),
+        orderDate: String(params.order_date || ''),
+      })
+      if (!performaInvoice.length) {
+        throw new HttpError(500, 'Unable to generate the performa invoice required by ICL.')
+      }
       const iclPayload = {
         CustomerRefNo: params.order_number,
         OriginName: 'IN',
@@ -8732,7 +8794,7 @@ export const createB2CShipmentService = async (
         ConsigneeDocumentNumber: '',
         Instruction: 'International shipment booked through ShipBees',
         VendorName: String(process.env.ICL_VENDOR_NAME || 'FDX').trim(),
-        ServiceName: String(process.env.ICL_SERVICE_NAME || 'INTERNATIONAL PRIORITY').trim(),
+        ServiceName: serviceName,
         ProductCode: 'SPX',
         Dox_Spx: 'SPX',
         Pieces: String(pieces),
@@ -8744,14 +8806,16 @@ export const createB2CShipmentService = async (
         CSBType: 'CSB4',
         TermofInvoice: 'CFR',
         ExportReason: 'SALE OF GOODS',
-        InvoiceNo: params.invoice_number || params.order_number,
-        InvoiceDate: dayjs(params.invoice_date || params.order_date || new Date()).format('DD/MM/YYYY'),
+        InvoiceNo: invoiceNumber,
+        InvoiceDate: invoiceDate,
         CompanyCode: '',
         IsCommercial: 1,
         RequiredPerforma: 'Y',
         RequiredLable: 'Y',
         Buisness_Type: 'B2C',
         Selfinvoice: 1,
+        KYCDocumentType: 'PERFORMA Invoice',
+        KYCImage: performaInvoice.toString('base64'),
         Dimensions: [{
           ActualWeight: String(weightKg),
           Vol_WeightL: String(Number(params.package_length ?? params.length ?? 1) || 1),

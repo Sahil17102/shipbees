@@ -108,6 +108,14 @@ export class IclInternationalService {
     if (!Array.isArray(payload?.Dimensions) || payload.Dimensions.length === 0) {
       throw new Error('At least one Dimensions entry is required')
     }
+    if (Number(payload?.Selfinvoice) === 1) {
+      if (String(payload?.KYCDocumentType || '').trim().toUpperCase() !== 'PERFORMA INVOICE') {
+        throw new Error('ICL self-invoice bookings require KYCDocumentType PERFORMA Invoice')
+      }
+      if (!String(payload?.KYCImage || '').trim().startsWith('JVBERi0')) {
+        throw new Error('ICL self-invoice bookings require a base64-encoded PDF in KYCImage')
+      }
+    }
     const { UserId: _userId, Password: _password, CustomerCode: _customerCode, ...booking } = payload
     const data = await this.postAwb(booking)
     if (data?.Response?.Status?.toLowerCase() !== 'success' || !String(data?.Response?.AWBNo || '').trim()) {
