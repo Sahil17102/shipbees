@@ -181,13 +181,13 @@ export const fetchCourierCredentials = async () => {
 
 export const updateDilliKingCredentials = async (payload) => {
   const { data } = await api.put('/admin/couriers/credentials/dilliking', payload)
-  if (!data?.success) throw new Error(data?.message || 'Failed to update DilliKing credentials')
+  if (!data?.success) throw new Error(data?.message || 'Failed to update ICL credentials')
   return data.data
 }
 
 export const testDilliKingCredentials = async () => {
   const { data } = await api.post('/admin/couriers/credentials/dilliking/test')
-  if (!data?.success) throw new Error(data?.message || 'DilliKing authentication failed')
+  if (!data?.success) throw new Error(data?.message || 'ICL credential check failed')
   return data.data
 }
 
@@ -201,7 +201,7 @@ export const trackDilliKingShipment = async (airwayBill) => {
 
 export const createDilliKingAwb = async (payload) => {
   const { data } = await api.post('/admin/couriers/credentials/dilliking/awb', payload)
-  if (!data?.success) throw new Error(data?.message || 'DilliKing AWB creation failed')
+  if (!data?.success) throw new Error(data?.message || 'ICL AWB creation failed')
   return data.data
 }
 

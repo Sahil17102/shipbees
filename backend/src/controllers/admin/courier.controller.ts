@@ -574,8 +574,9 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
       amazon: buildAmazonCredentialResponse(),
       dilliking: {
         provider: 'dilliking',
-        apiBase: 'https://api.dilliking.com',
-        email: '',
+        apiBase: 'https://cloud.iclinternational.in',
+        userId: '',
+        customerCode: '',
         hasPassword: false,
         configured: false,
       },
@@ -704,13 +705,15 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
       } else if (provider === AMAZON_CREDENTIALS_PROVIDER) {
         acc.amazon = buildAmazonCredentialResponse(row)
       } else if (provider === 'dilliking') {
-        const email = String(row.username || '').trim()
+        const userId = String(row.username || '').trim()
+        const customerCode = String(row.clientId || '').trim()
         acc.dilliking = {
           provider: 'dilliking',
-          apiBase: row.apiBase || 'https://api.dilliking.com',
-          email,
+          apiBase: row.apiBase || 'https://cloud.iclinternational.in',
+          userId,
+          customerCode,
           hasPassword: Boolean(String(row.password || '').trim()),
-          configured: Boolean(email && String(row.password || '').trim()),
+          configured: Boolean(userId && customerCode && String(row.password || '').trim()),
         }
       }
       return acc
