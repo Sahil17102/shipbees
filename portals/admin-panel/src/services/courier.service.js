@@ -179,6 +179,32 @@ export const fetchCourierCredentials = async () => {
   return data.data
 }
 
+export const updateDilliKingCredentials = async (payload) => {
+  const { data } = await api.put('/admin/couriers/credentials/dilliking', payload)
+  if (!data?.success) throw new Error(data?.message || 'Failed to update DilliKing credentials')
+  return data.data
+}
+
+export const testDilliKingCredentials = async () => {
+  const { data } = await api.post('/admin/couriers/credentials/dilliking/test')
+  if (!data?.success) throw new Error(data?.message || 'DilliKing authentication failed')
+  return data.data
+}
+
+export const trackDilliKingShipment = async (airwayBill) => {
+  const { data } = await api.get('/admin/couriers/credentials/dilliking/tracking', {
+    params: { airway_bill: airwayBill },
+  })
+  if (!data?.success) throw new Error(data?.message || 'DilliKing tracking failed')
+  return data.data
+}
+
+export const createDilliKingAwb = async (payload) => {
+  const { data } = await api.post('/admin/couriers/credentials/dilliking/awb', payload)
+  if (!data?.success) throw new Error(data?.message || 'DilliKing AWB creation failed')
+  return data.data
+}
+
 export const updateDelhiveryCredentials = async (payload) => {
   const { data } = await api.put('/admin/couriers/credentials/delhivery', payload)
   if (!data?.success) throw new Error('Failed to update Delhivery credentials')

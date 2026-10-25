@@ -501,6 +501,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         inArray(courier_credentials.provider, [
           'delhivery',
           'velocity',
+          'dilliking',
         ]),
       )
 
@@ -571,6 +572,13 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         authorizationScheme: 'raw',
       },
       amazon: buildAmazonCredentialResponse(),
+      dilliking: {
+        provider: 'dilliking',
+        apiBase: 'https://api.dilliking.com',
+        email: '',
+        hasPassword: false,
+        configured: false,
+      },
     }
 
     const data = rows.reduce<Record<string, any>>((acc, row) => {
@@ -695,6 +703,15 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         }
       } else if (provider === AMAZON_CREDENTIALS_PROVIDER) {
         acc.amazon = buildAmazonCredentialResponse(row)
+      } else if (provider === 'dilliking') {
+        const email = String(row.username || '').trim()
+        acc.dilliking = {
+          provider: 'dilliking',
+          apiBase: row.apiBase || 'https://api.dilliking.com',
+          email,
+          hasPassword: Boolean(String(row.password || '').trim()),
+          configured: Boolean(email && String(row.password || '').trim()),
+        }
       }
       return acc
     }, { ...defaults })

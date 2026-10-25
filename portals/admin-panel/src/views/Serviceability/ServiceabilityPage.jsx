@@ -23,6 +23,7 @@ import {
 import { useState } from 'react'
 import { locationService, normalizePincodeInput } from 'services/location.service'
 import { GenericTable } from 'views/Dashboard/Tables/components/GenericTable'
+import InternationalServiceability from 'components/Serviceability/InternationalServiceability'
 
 // MultiSelect options you wanted
 const TAG_OPTIONS = [
@@ -35,6 +36,7 @@ const TAG_OPTIONS = [
 ]
 
 const ServiceabilityPage = () => {
+  const [serviceabilityType, setServiceabilityType] = useState('domestic')
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(50)
   const [selectedRows, setSelectedRows] = useState([])
@@ -164,6 +166,29 @@ const ServiceabilityPage = () => {
 
   return (
     <Flex direction="column" pt={{ base: '120px', md: '75px' }}>
+      <Flex gap={2} mb={5} p={1} bg="gray.100" borderRadius="lg" alignSelf="flex-start">
+        <Button
+          size="sm"
+          colorScheme={serviceabilityType === 'domestic' ? 'purple' : 'gray'}
+          variant={serviceabilityType === 'domestic' ? 'solid' : 'ghost'}
+          onClick={() => setServiceabilityType('domestic')}
+        >
+          Domestic (India)
+        </Button>
+        <Button
+          size="sm"
+          colorScheme={serviceabilityType === 'international' ? 'purple' : 'gray'}
+          variant={serviceabilityType === 'international' ? 'solid' : 'ghost'}
+          onClick={() => setServiceabilityType('international')}
+        >
+          International
+        </Button>
+      </Flex>
+
+      {serviceabilityType === 'international' ? (
+        <InternationalServiceability />
+      ) : (
+        <>
       <Stack justifyContent="flex-end" direction="row" spacing={3} mb={4}>
         <Button leftIcon={<AddIcon />} colorScheme="brand" onClick={handleOpenModal}>
           Add Location
@@ -269,6 +294,8 @@ const ServiceabilityPage = () => {
           </Box>
         </Stack>
       </CustomModal>
+        </>
+      )}
     </Flex>
   )
 }

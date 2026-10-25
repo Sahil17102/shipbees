@@ -42,6 +42,12 @@ import {
   updateXpressbeesCredentialsController,
   updateShippingRateController,
 } from '../../controllers/admin/courier.controller'
+import {
+  createDilliKingAwbController,
+  testDilliKingCredentialsController,
+  trackDilliKingShipmentController,
+  updateDilliKingCredentialsController,
+} from '../../controllers/admin/dilliking.controller'
 import { isAdminMiddleware } from '../../middlewares/isAdmin'
 import { requireAuth } from '../../middlewares/requireAuth'
 import { upload } from '../../middlewares/upload'
@@ -66,6 +72,10 @@ router.post(
 )
 router.post('/available', requireAuth, fetchAvailableCouriersForAdmin)
 router.get('/credentials', requireAuth, isAdminMiddleware, getCourierCredentialsController)
+router.put('/credentials/dilliking', requireAuth, isAdminMiddleware, updateDilliKingCredentialsController)
+router.post('/credentials/dilliking/test', requireAuth, isAdminMiddleware, testDilliKingCredentialsController)
+router.post('/credentials/dilliking/awb', requireAuth, isAdminMiddleware, createDilliKingAwbController)
+router.get('/credentials/dilliking/tracking', requireAuth, isAdminMiddleware, trackDilliKingShipmentController)
 router.put(
   '/credentials/delhivery',
   requireAuth,

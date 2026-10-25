@@ -14,6 +14,7 @@ import {
   VStack,
 } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
+import DilliKingCredentialsPanel from 'components/Couriers/DilliKingCredentialsPanel'
 import {
   useBookDelhiveryLtlLastMileAppointment,
   useCancelDelhiveryLtlPickupRequest,
@@ -1274,6 +1275,8 @@ const CourierCredentials = () => {
       <Text fontSize="xl" fontWeight="bold">
         Courier Credentials
       </Text>
+
+      <DilliKingCredentialsPanel credentials={data?.dilliking} />
 
       <Flex gap={4} flexWrap="wrap">
         <Box

@@ -21,6 +21,7 @@ const countries = [
 ] as const
 
 const couriers = [
+  { name: 'DilliKing', service: 'International Express', multiplier: 1 },
   { name: 'DHL Express', service: 'Express Worldwide', multiplier: 1.12 },
   { name: 'FedEx', service: 'International Priority', multiplier: 1.06 },
   { name: 'UPS', service: 'Worldwide Saver', multiplier: 1.09 },
