@@ -218,6 +218,10 @@ const InternationalPricingManagement = () => {
         toast({ title: 'Courier name and service type are required', status: 'warning', duration: 3000 })
         return
       }
+      if (payload.baseWeightKg <= 0 || payload.baseRate <= 0) {
+        toast({ title: 'Base weight and base rate must be greater than zero', status: 'warning', duration: 3000 })
+        return
+      }
       createRate.mutate(payload)
     } else {
       updateRate.mutate({ id: editing.id, payload })
@@ -381,7 +385,7 @@ const InternationalPricingManagement = () => {
                 <GridItem><FormControl><FormLabel>Currency</FormLabel><Select value={editing.currency} onChange={(e) => updateField('currency', e.target.value)}><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option></Select></FormControl></GridItem>
                 <GridItem><FormControl><FormLabel>Duties model</FormLabel><Select value={editing.dutiesMode} onChange={(e) => updateField('dutiesMode', e.target.value)}><option value="DDU">DDU · Receiver pays duties</option><option value="DDP">DDP · Sender pays duties</option></Select></FormControl></GridItem>
                 {numericFields.map(([field, label]) => (
-                  <GridItem key={field}><FormControl><FormLabel>{label}</FormLabel><Input type="number" min="0" step="0.01" value={editing[field]} onChange={(e) => updateField(field, e.target.value)} /></FormControl></GridItem>
+                  <GridItem key={field}><FormControl isRequired={field === 'baseWeightKg' || field === 'baseRate'}><FormLabel>{label}</FormLabel><Input type="number" min={field === 'baseWeightKg' || field === 'baseRate' ? '0.01' : '0'} step="0.01" value={editing[field]} onChange={(e) => updateField(field, e.target.value)} /></FormControl></GridItem>
                 ))}
                 <GridItem colSpan={{ base: 1, md: 2 }}><Checkbox isChecked={editing.isActive} onChange={(e) => updateField('isActive', e.target.checked)} colorScheme="purple">Rate card is active and available for quotation</Checkbox></GridItem>
               </Grid>

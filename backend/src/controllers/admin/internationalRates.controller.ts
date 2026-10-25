@@ -141,7 +141,7 @@ const parseRatePayload = (body: any) => {
     serviceType: requiredText(body.serviceType, 'Service type', 80),
     currency,
     baseWeightKg: toNumber(body.baseWeightKg, 'Base weight', 0.01, 1000),
-    baseRate: toNumber(body.baseRate, 'Base rate'),
+    baseRate: toNumber(body.baseRate, 'Base rate', 0.01),
     additionalRatePerKg: toNumber(body.additionalRatePerKg, 'Additional rate'),
     fuelSurchargePercent: toNumber(body.fuelSurchargePercent, 'Fuel surcharge', 0, 100),
     handlingFee: toNumber(body.handlingFee, 'Handling fee'),
