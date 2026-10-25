@@ -9,7 +9,10 @@ import {
   checkInternationalServiceability,
   createInternationalServiceability,
   deleteInternationalServiceability,
+  getInternationalPostalSyncStatus,
+  listInternationalPostalCodes,
   listInternationalServiceability,
+  startInternationalPostalSync,
   updateInternationalServiceability,
 } from '../../controllers/admin/internationalServiceability.controller'
 
@@ -18,6 +21,9 @@ router.use(requireAuth, isAdminMiddleware)
 router.get('/rates', listInternationalRates)
 router.put('/rates/:id', updateInternationalRate)
 router.get('/serviceability', listInternationalServiceability)
+router.get('/serviceability/postal-codes', listInternationalPostalCodes)
+router.get('/serviceability/sync', getInternationalPostalSyncStatus)
+router.post('/serviceability/sync', startInternationalPostalSync)
 router.post('/serviceability', createInternationalServiceability)
 router.post('/serviceability/check', checkInternationalServiceability)
 router.put('/serviceability/:id', updateInternationalServiceability)

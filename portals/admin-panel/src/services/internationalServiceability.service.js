@@ -5,7 +5,19 @@ const base = '/admin/international/serviceability'
 export const internationalServiceabilityService = {
   async list() {
     const { data } = await api.get(base)
-    return data.data || []
+    return { rules: data.data || [], stats: data.stats || {} }
+  },
+  async listPostalCodes(params = {}) {
+    const { data } = await api.get(`${base}/postal-codes`, { params })
+    return data
+  },
+  async startSync() {
+    const { data } = await api.post(`${base}/sync`)
+    return data
+  },
+  async syncStatus() {
+    const { data } = await api.get(`${base}/sync`)
+    return data.stats || {}
   },
   async create(payload) {
     const { data } = await api.post(base, payload)

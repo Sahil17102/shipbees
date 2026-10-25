@@ -155,6 +155,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
       pickupTime: defaultPickupSlot.pickupTime,
       orderType: getDefaultOrderType(),
       selectedMaxSlabWeight: null,
+      country: 'India',
     },
   })
 
@@ -204,6 +205,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
       orderType: getDefaultOrderType(),
       selectedMaxSlabWeight: null,
       ...cloneState.cloneOrder,
+      country: cloneState.cloneOrder.country || 'India',
       orderId: `ORD-${Date.now()}`,
       orderDate: new Date().toISOString().slice(0, 10),
     })
@@ -405,6 +407,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
           pincode: data.pincode,
           email: data?.buyerEmail,
           phone: data.buyerPhone,
+          country: data.country,
         },
         pickup_location_id: data.pickupLocationId,
         pickup: {
@@ -500,6 +503,7 @@ export default function B2COrderFormSteps({ onClose }: { onClose?: () => void })
       const pincode = watch('pincode')
 
       try {
+        if (watch('country') !== 'India') return true
         const resp = await fetchLocations({ pincode })
         const serviceable = Array.isArray(resp?.data) ? resp.data.length > 0 : !!resp?.data
 

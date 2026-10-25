@@ -164,6 +164,7 @@ export default function B2BOrderForm({ onClose }: { onClose?: () => void }) {
       rovType: 'owner',
       orderAmount: 0,
       codAmount: 0,
+      country: 'India',
     },
   })
 
@@ -263,6 +264,7 @@ export default function B2BOrderForm({ onClose }: { onClose?: () => void }) {
           pincode: data.pincode,
           company_name: data.companyName,
           gstin: data.gstin,
+          country: data.country,
         },
 
         pickup: {

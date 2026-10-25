@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { CircularProgress, Grid } from '@mui/material'
+import { CircularProgress, Grid, MenuItem, TextField } from '@mui/material'
 import { useEffect } from 'react'
 import { Controller, type FieldErrors, useFormContext } from 'react-hook-form'
 import { normalizePincode, type ServiceabilityLocation } from '../../api/locations'
 import { useLocations } from '../../hooks/useLocations'
+import { SHIPPING_COUNTRIES } from '../../constants/internationalCountries'
 import CustomInput from '../UI/inputs/CustomInput'
 import type { B2BFormData } from './b2b/B2BOrderForm'
 import type { B2CFormData } from './b2c/B2COrderForm'
@@ -25,7 +26,11 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
   } = useFormContext<B2CFormData | B2BFormData>()
 
   const pincode = watch('pincode')
-  const normalizedPincode = normalizePincode(pincode)
+  const country = watch('country') || 'India'
+  const isIndia = country === 'India'
+  const normalizedPincode = isIndia
+    ? normalizePincode(pincode)
+    : String(pincode || '').toUpperCase().replace(/[^A-Z0-9 -]/g, '').slice(0, 12)
 
   const {
     data: locationData,
@@ -33,11 +38,15 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
     isError,
   } = useLocations(
     { pincode: normalizedPincode },
-    Boolean(/^\d{6}$/.test(normalizedPincode)),
+    isIndia && Boolean(/^\d{6}$/.test(normalizedPincode)),
     ['locationLookup', normalizedPincode],
   )
 
   useEffect(() => {
+    if (!isIndia) {
+      clearErrors('pincode')
+      return
+    }
     if (!/^\d{6}$/.test(normalizedPincode)) {
       clearErrors('pincode')
       setValue('city', '', { shouldValidate: false })
@@ -68,7 +77,7 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
         setValue('state', state, { shouldValidate: true })
       }
     }
-  }, [locationData, isError, normalizedPincode, setError, clearErrors, setValue, getValues])
+  }, [locationData, isError, isIndia, normalizedPincode, setError, clearErrors, setValue, getValues])
 
   const fields = [
     { name: 'buyerName', label: 'Name' },
@@ -95,8 +104,36 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
 
   return (
     <Grid container spacing={0.65}>
+      <Grid size={{ xs: 12, sm: 6, md: 4, xl: 2 }}>
+        <Controller
+          name="country"
+          control={control}
+          rules={{ required: 'Country is required' }}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              select
+              fullWidth
+              required
+              size="small"
+              label="Country"
+              value={field.value || 'India'}
+              error={!!getFieldError('country')}
+              helperText={getFieldError('country')}
+              onChange={(event) => {
+                field.onChange(event.target.value)
+                setValue('pincode', '', { shouldValidate: false })
+                setValue('city', '', { shouldValidate: false })
+                setValue('state', '', { shouldValidate: false })
+              }}
+            >
+              {SHIPPING_COUNTRIES.map((item) => <MenuItem key={item.code} value={item.name}>{item.name}</MenuItem>)}
+            </TextField>
+          )}
+        />
+      </Grid>
       {fields.map((fieldItem) => {
-        const isNonEditable = fieldItem.name === 'city' || fieldItem.name === 'state'
+        const isNonEditable = isIndia && (fieldItem.name === 'city' || fieldItem.name === 'state')
         const showLoader = fieldItem.name === 'pincode' ? pinFetching : false
         const isOptionalField =
           fieldItem.name === 'buyerEmail' ||
@@ -120,10 +157,14 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
               rules={{
                 ...(!isOptionalField ? { required: `${fieldItem.label} is required` } : {}),
                 ...(fieldItem.name === 'buyerPhone' && {
-                  pattern: { value: /^[0-9]{10}$/, message: 'Enter valid 10-digit phone' },
+                  pattern: isIndia
+                    ? { value: /^[0-9]{10}$/, message: 'Enter valid 10-digit phone' }
+                    : { value: /^\+?[0-9 -]{7,16}$/, message: 'Enter a valid international phone number' },
                 }),
                 ...(fieldItem.name === 'pincode' && {
-                  pattern: { value: /^\d{6}$/, message: 'Enter 6-digit pincode' },
+                  pattern: isIndia
+                    ? { value: /^\d{6}$/, message: 'Enter 6-digit pincode' }
+                    : { value: /^[A-Z0-9][A-Z0-9 -]{1,11}$/i, message: 'Enter a valid postal / ZIP code' },
                 }),
               }}
               render={({ field }) => (
@@ -133,7 +174,9 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
                   {...field}
                   onChange={(event) => {
                     if (fieldItem.name === 'pincode') {
-                      field.onChange(normalizePincode(event.target.value))
+                      field.onChange(isIndia
+                        ? normalizePincode(event.target.value)
+                        : event.target.value.toUpperCase().replace(/[^A-Z0-9 -]/g, '').slice(0, 12))
                       return
                     }
                     field.onChange(event)

@@ -16,3 +16,22 @@ create table if not exists shipray_international_serviceability (
 
 create index if not exists shipray_international_serviceability_country_idx
   on shipray_international_serviceability (country_code, is_active);
+
+create table if not exists shipray_international_postal_codes (
+  id bigserial primary key,
+  country_code varchar(2) not null,
+  postal_code varchar(24) not null,
+  place_name varchar(180) not null default '',
+  admin_name varchar(180) not null default '',
+  latitude numeric(10,7),
+  longitude numeric(10,7),
+  source varchar(40) not null default 'GeoNames',
+  synced_at timestamptz not null default now(),
+  constraint shipray_international_postal_codes_unique unique (country_code, postal_code)
+);
+
+create index if not exists shipray_intl_postal_country_code_idx
+  on shipray_international_postal_codes (country_code, postal_code);
+
+create index if not exists shipray_intl_postal_place_idx
+  on shipray_international_postal_codes (lower(place_name));

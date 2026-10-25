@@ -15,8 +15,13 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  Progress,
   Select,
+  SimpleGrid,
   Spinner,
+  Stat,
+  StatLabel,
+  StatNumber,
   Switch,
   Table,
   Tbody,
@@ -29,7 +34,7 @@ import {
   useToast,
 } from '@chakra-ui/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { IconEdit, IconMapPinCheck, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
+import { IconDatabaseImport, IconEdit, IconMapPinCheck, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
 import { internationalServiceabilityService } from '../../services/internationalServiceability.service'
 
@@ -50,11 +55,28 @@ const InternationalServiceability = () => {
   const [editingId, setEditingId] = useState(null)
   const [check, setCheck] = useState({ countryCode: 'AU', postalCode: '2000' })
   const [checkResult, setCheckResult] = useState(null)
+  const [postalSearch, setPostalSearch] = useState('')
+  const [postalCountry, setPostalCountry] = useState('')
+  const [postalPage, setPostalPage] = useState(1)
 
-  const { data: rules = [], isLoading } = useQuery({
+  const { data: coverage = {}, isLoading } = useQuery({
     queryKey: ['international-serviceability'],
     queryFn: internationalServiceabilityService.list,
+    refetchInterval: (query) => query.state.data?.stats?.sync?.status === 'running' ? 5000 : false,
   })
+  const rules = coverage.rules || []
+  const stats = coverage.stats || {}
+  const { data: postalResult = {}, isLoading: postalLoading } = useQuery({
+    queryKey: ['international-postal-codes', postalCountry, postalSearch, postalPage],
+    queryFn: () => internationalServiceabilityService.listPostalCodes({
+      countryCode: postalCountry || undefined,
+      search: postalSearch || undefined,
+      page: postalPage,
+      limit: 50,
+    }),
+  })
+  const postalCodes = postalResult.data || []
+  const pagination = postalResult.pagination || { page: 1, total: 0, totalPages: 1 }
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['international-serviceability'] })
   const saveMutation = useMutation({
     mutationFn: (payload) => editingId
@@ -72,6 +94,14 @@ const InternationalServiceability = () => {
     onSuccess: setCheckResult,
     onError: (error) => toast({ title: 'Could not check postal code', description: error.message, status: 'error' }),
   })
+  const syncMutation = useMutation({
+    mutationFn: internationalServiceabilityService.startSync,
+    onSuccess: () => {
+      refresh()
+      toast({ title: 'Postal directory sync started', description: 'GeoNames records are importing in the background.', status: 'info' })
+    },
+    onError: (error) => toast({ title: 'Could not start postal sync', description: error?.response?.data?.message || error.message, status: 'error' }),
+  })
 
   const regions = useMemo(() => [...new Set(rules.map((item) => item.region))], [rules])
   const filtered = useMemo(() => {
@@ -88,9 +118,20 @@ const InternationalServiceability = () => {
   return (
     <Box>
       <Flex justify="space-between" align={{ base: 'flex-start', lg: 'center' }} direction={{ base: 'column', lg: 'row' }} gap={4} mb={5}>
-        <Box><Heading size="md">International postal coverage</Heading><Text color="gray.600" fontSize="sm">Country-wide postal patterns cover valid ZIP/postcodes without storing millions of individual rows.</Text></Box>
-        <Button leftIcon={<IconPlus size={17} />} colorScheme="purple" onClick={openAdd}>Add postal rule</Button>
+        <Box><Heading size="md">International postal directory</Heading><Text color="gray.600" fontSize="sm">Searchable postal codes for supported international destinations, backed by GeoNames data.</Text></Box>
+        <Flex gap={2} wrap="wrap">
+          <Button leftIcon={<IconDatabaseImport size={17} />} colorScheme="blue" onClick={() => syncMutation.mutate()} isLoading={syncMutation.isPending || stats.sync?.status === 'running'} loadingText="Syncing">Sync postal directory</Button>
+          <Button leftIcon={<IconPlus size={17} />} colorScheme="purple" onClick={openAdd}>Add postal rule</Button>
+        </Flex>
       </Flex>
+
+      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mb={5}>
+        <Stat bg="white" borderWidth="1px" borderRadius="lg" p={4}><StatLabel>Postal codes loaded</StatLabel><StatNumber>{Number(stats.totalPostalCodes || 0).toLocaleString()}</StatNumber></Stat>
+        <Stat bg="white" borderWidth="1px" borderRadius="lg" p={4}><StatLabel>Countries indexed</StatLabel><StatNumber>{stats.countriesWithPostalCodes || 0}</StatNumber></Stat>
+        <Stat bg="white" borderWidth="1px" borderRadius="lg" p={4}><StatLabel>Active coverage rules</StatLabel><StatNumber>{rules.filter((rule) => rule.isActive).length}</StatNumber></Stat>
+      </SimpleGrid>
+      {stats.sync?.status === 'running' && <Box mb={5}><Progress size="sm" isIndeterminate colorScheme="purple" borderRadius="full" /><Text mt={1} fontSize="xs" color="gray.600">Countries {stats.sync.countriesCompleted || 0}/{stats.sync.countriesTotal || rules.length} · processed {Number(stats.sync.processed || 0).toLocaleString()} rows · imported {Number(stats.sync.imported || 0).toLocaleString()} postal codes</Text></Box>}
+      {stats.sync?.status === 'failed' && <Text mb={5} color="red.600" fontSize="sm">Last sync failed: {stats.sync.error}</Text>}
 
       <Box bg="blue.50" borderWidth="1px" borderColor="blue.100" borderRadius="lg" p={4} mb={5}>
         <Flex gap={3} align={{ base: 'stretch', md: 'flex-end' }} direction={{ base: 'column', md: 'row' }}>
@@ -101,6 +142,24 @@ const InternationalServiceability = () => {
         {checkResult && <Badge mt={3} px={3} py={1} colorScheme={checkResult.serviceable ? 'green' : 'red'}>{checkResult.serviceable ? `Serviceable by ${checkResult.matches.map((m) => m.courierName).join(', ')}` : 'Not serviceable'}</Badge>}
       </Box>
 
+      <Box mb={7}>
+        <Heading size="sm" mb={3}>Postal codes</Heading>
+        <Flex gap={3} mb={4} direction={{ base: 'column', md: 'row' }}>
+          <Flex align="center" gap={2} flex="2" borderWidth="1px" borderRadius="md" px={3}><IconSearch size={17} color="#718096" /><Input border="0" boxShadow="none" value={postalSearch} onChange={(e) => { setPostalSearch(e.target.value); setPostalPage(1) }} placeholder="Search postal code, city or state" /></Flex>
+          <Select value={postalCountry} onChange={(e) => { setPostalCountry(e.target.value); setPostalPage(1) }} flex="1"><option value="">All countries</option>{[...new Map(rules.map((r) => [r.countryCode, r])).values()].map((r) => <option key={r.countryCode} value={r.countryCode}>{r.countryName} ({Number(stats.countsByCountry?.[r.countryCode] || 0).toLocaleString()})</option>)}</Select>
+        </Flex>
+        {postalLoading ? <Flex py={12} justify="center"><Spinner color="purple.500" /></Flex> : postalCodes.length ? (
+          <Box overflowX="auto" borderWidth="1px" borderRadius="lg">
+            <Table size="sm" minW="760px"><Thead bg="gray.50"><Tr><Th>Postal / ZIP code</Th><Th>City / place</Th><Th>State / region</Th><Th>Country</Th><Th>Source</Th></Tr></Thead>
+              <Tbody>{postalCodes.map((item) => <Tr key={`${item.countryCode}-${item.postalCode}`}><Td fontWeight="700">{item.postalCode}</Td><Td>{item.placeName || '—'}</Td><Td>{item.adminName || '—'}</Td><Td>{flag(item.countryCode)} {rules.find((r) => r.countryCode === item.countryCode)?.countryName || item.countryCode}</Td><Td><Badge colorScheme="blue">{item.source}</Badge></Td></Tr>)}</Tbody>
+            </Table>
+            <Flex justify="space-between" align="center" px={4} py={3} borderTopWidth="1px"><Text fontSize="sm" color="gray.600">{Number(pagination.total || 0).toLocaleString()} matching postal codes · Page {pagination.page} of {pagination.totalPages}</Text><Flex gap={2}><Button size="sm" isDisabled={postalPage <= 1} onClick={() => setPostalPage((page) => Math.max(1, page - 1))}>Previous</Button><Button size="sm" isDisabled={postalPage >= pagination.totalPages} onClick={() => setPostalPage((page) => page + 1)}>Next</Button></Flex></Flex>
+          </Box>
+        ) : <Box borderWidth="1px" borderRadius="lg" py={10} textAlign="center"><Text fontWeight="700">No postal codes loaded yet</Text><Text color="gray.600" fontSize="sm">Use “Sync postal directory” to import supported countries from GeoNames.</Text></Box>}
+        <Text mt={2} fontSize="xs" color="gray.500">Source: GeoNames postal code data, licensed under CC BY 4.0. Courier acceptance is still confirmed at booking.</Text>
+      </Box>
+
+      <Heading size="sm" mb={3}>Coverage rules</Heading>
       <Flex gap={3} mb={4} direction={{ base: 'column', md: 'row' }}>
         <Flex align="center" gap={2} flex="2" borderWidth="1px" borderRadius="md" px={3}><IconSearch size={17} color="#718096" /><Input border="0" boxShadow="none" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search country, courier or example" /></Flex>
         <Select value={region} onChange={(e) => setRegion(e.target.value)} flex="1"><option>All regions</option>{regions.map((item) => <option key={item}>{item}</option>)}</Select>

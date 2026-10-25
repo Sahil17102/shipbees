@@ -38,6 +38,9 @@ const isOperationalTimeoutError = (error: any) => {
 export const createB2CShipmentController = async (req: any, res: Response) => {
   try {
     const id = req.user?.sub
+    if (!String(req.body?.consignee?.country || '').trim()) {
+      return res.status(400).json({ success: false, message: 'Destination country is required' })
+    }
     // Local order creation (via dashboard), so is_external_api = false
     console.log('[ShipmentCreate] B2C request received', {
       user_id: id || null,
@@ -250,6 +253,9 @@ export const createB2BShipmentController = async (req: any, res: Response) => {
     if (!userId) return res.status(401).json({ message: 'Unauthorized' })
 
     const params: ShipmentParams = req.body
+    if (!String(params?.consignee?.country || '').trim()) {
+      return res.status(400).json({ message: 'Destination country is required' })
+    }
 
     // Basic validation (you can enhance this with Zod/Yup)
     const hasBoxes = Array.isArray((params as any)?.boxes) && (params as any).boxes.length > 0
