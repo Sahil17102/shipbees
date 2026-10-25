@@ -28,6 +28,37 @@ function buildGeo(latitude: string | null | undefined, longitude: string | null 
   return { lat, lon }
 }
 
+const ADDRESS_MUTABLE_FIELDS = [
+  'addressNickname',
+  'contactName',
+  'contactPhone',
+  'contactEmail',
+  'addressLine1',
+  'addressLine2',
+  'landmark',
+  'city',
+  'state',
+  'country',
+  'pincode',
+  'latitude',
+  'longitude',
+  'gstNumber',
+] as const
+
+const COURIER_WAREHOUSE_FIELDS = ADDRESS_MUTABLE_FIELDS.filter(
+  (field) => field !== 'gstNumber',
+)
+
+const sanitizeAddressUpdate = (value: Record<string, any> | null | undefined) => {
+  const sanitized: Record<string, any> = {}
+  for (const field of ADDRESS_MUTABLE_FIELDS) {
+    if (value?.[field] !== undefined) sanitized[field] = value[field]
+  }
+  return sanitized
+}
+
+const normalizedAddressValue = (value: unknown) => String(value ?? '').trim()
+
 const buildAmazonWarehousePayload = (pickupAddr: any, rtoAddressData?: any) => ({
   alias: pickupAddr.addressNickname || pickupAddr.contactName || `warehouse-${pickupAddr.id}`,
   contactName: pickupAddr.contactName || 'Shipray',
@@ -454,8 +485,18 @@ export async function updatePickupAddressService(
     return await db.transaction(async (txn) => {
       // ✅ Update pickup address itself
       let updatedPickup: any = null
+      let courierWarehouseChanged = false
       if (data.pickup && pickup.addressId) {
-        const { createdAt, ...safeData } = data.pickup
+        const existingPickup = await txn.query.addresses.findFirst({
+          where: eq(addresses.id, pickup.addressId),
+        })
+        const safeData = sanitizeAddressUpdate(data.pickup)
+        courierWarehouseChanged = COURIER_WAREHOUSE_FIELDS.some(
+          (field) =>
+            safeData[field] !== undefined &&
+            normalizedAddressValue(safeData[field]) !==
+              normalizedAddressValue(existingPickup?.[field]),
+        )
         const [addr] = await txn
           .update(addresses)
           .set({
@@ -470,7 +511,7 @@ export async function updatePickupAddressService(
       // ✅ Update / Create RTO address
       if (data.rtoAddress) {
         if (pickup.rtoAddressId) {
-          const { createdAt, ...safeData } = data?.rtoAddress
+          const safeData = sanitizeAddressUpdate(data.rtoAddress)
           await txn
             .update(addresses)
             .set({ ...safeData, updatedAt: new Date() })
@@ -504,7 +545,7 @@ export async function updatePickupAddressService(
 
       // 🟢 Sync with Delhivery (only if pickup address actually changed)
       try {
-        if (updatedPickup) {
+        if (updatedPickup && courierWarehouseChanged) {
           const delhivery = new DelhiveryService()
           const delhiveryResp = await delhivery.updateWarehouse({
             name:
@@ -521,11 +562,32 @@ export async function updatePickupAddressService(
 
           console.log(`✅ Warehouse updated in Delhivery: ${updatedPickup?.addressNickname}`)
         } else {
-          console.log('ℹ️ No pickup address change detected — skipped Delhivery update.')
+          console.log('ℹ️ No courier-facing pickup change detected — skipped Delhivery update.')
         }
       } catch (err: any) {
         console.error('❌ Delhivery warehouse update error:', err.message)
-        throw new Error('Failed to update warehouse')
+        await logCourierRegistrationError({
+          userId,
+          provider: 'delhivery',
+          operation: 'update_warehouse',
+          addressId: updatedPickup?.id ?? pickup.addressId,
+          pickupAddressId: targetPickupId,
+          warehouseAlias: updatedPickup?.addressNickname || updatedPickup?.contactName || null,
+          requestPayload: updatedPickup
+            ? {
+                warehouse_name: updatedPickup.addressNickname || updatedPickup.contactName || null,
+                address_line_1: updatedPickup.addressLine1,
+                city: updatedPickup.city,
+                state: updatedPickup.state,
+                pincode: updatedPickup.pincode,
+                phone: updatedPickup.contactPhone,
+              }
+            : null,
+          error: err,
+          client: txn,
+        })
+        // Local pickup edits remain authoritative. Provider sync failures are logged
+        // above and must not roll back a valid ShipBees address update.
       }
 
       try {
