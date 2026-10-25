@@ -48,6 +48,11 @@ import {
   trackDilliKingShipmentController,
   updateDilliKingCredentialsController,
 } from '../../controllers/admin/dilliking.controller'
+import {
+  createIclAwbController,
+  testIclCredentialsController,
+  updateIclCredentialsController,
+} from '../../controllers/admin/iclInternational.controller'
 import { isAdminMiddleware } from '../../middlewares/isAdmin'
 import { requireAuth } from '../../middlewares/requireAuth'
 import { upload } from '../../middlewares/upload'
@@ -76,6 +81,9 @@ router.put('/credentials/dilliking', requireAuth, isAdminMiddleware, updateDilli
 router.post('/credentials/dilliking/test', requireAuth, isAdminMiddleware, testDilliKingCredentialsController)
 router.post('/credentials/dilliking/awb', requireAuth, isAdminMiddleware, createDilliKingAwbController)
 router.get('/credentials/dilliking/tracking', requireAuth, isAdminMiddleware, trackDilliKingShipmentController)
+router.put('/credentials/icl', requireAuth, isAdminMiddleware, updateIclCredentialsController)
+router.post('/credentials/icl/test', requireAuth, isAdminMiddleware, testIclCredentialsController)
+router.post('/credentials/icl/awb', requireAuth, isAdminMiddleware, createIclAwbController)
 router.put(
   '/credentials/delhivery',
   requireAuth,

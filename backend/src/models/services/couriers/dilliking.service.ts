@@ -5,160 +5,151 @@ import { courier_credentials } from '../../schema/courierCredentials'
 import { decryptSecret } from '../../../utils/secretEncryption'
 
 const PROVIDER = 'dilliking'
-const DEFAULT_API_BASE = 'https://cloud.iclinternational.in'
-const AWB_PATH = '/api/v1/Awbentry/Awbentry'
+const DEFAULT_API_BASE = 'https://api.dilliking.com'
 
-type IclCredentials = {
+type DilliKingCredentials = {
   apiBase: string
-  userId: string
+  email: string
   password: string
-  customerCode: string
 }
 
-type IclResponse = {
-  Response?: {
-    ResponseCode?: string
-    Status?: string
-    ErrorCode?: string
-    AWBNo?: string
-    Error?: Array<{ Description?: string }>
-    [key: string]: any
-  }
-}
+let cachedToken = ''
+let cachedTokenAt = 0
+const TOKEN_CACHE_MS = 45 * 60 * 1000
 
 const safeDecrypt = (value: string) => {
   if (!value) return ''
   try {
     return decryptSecret(value)
   } catch {
+    // Supports credentials saved before encrypted storage was introduced.
     return value
   }
 }
 
-const getCredentials = async (): Promise<IclCredentials> => {
+const getCredentials = async (): Promise<DilliKingCredentials> => {
   const [row] = await db
     .select({
-      userId: courier_credentials.username,
-      customerCode: courier_credentials.clientId,
+      apiBase: courier_credentials.apiBase,
+      username: courier_credentials.username,
       password: courier_credentials.password,
     })
     .from(courier_credentials)
     .where(eq(courier_credentials.provider, PROVIDER))
     .limit(1)
 
-  // The supplied production integration is host-specific. Ignore legacy DilliKing URLs.
-  const apiBase = String(process.env.ICL_API_BASE || DEFAULT_API_BASE)
+  const apiBase = String(row?.apiBase || process.env.DILLIKING_API_BASE || DEFAULT_API_BASE)
     .trim()
     .replace(/\/+$/, '')
-  const userId = String(row?.userId || process.env.ICL_USER_ID || '').trim()
-  const customerCode = String(row?.customerCode || process.env.ICL_CUSTOMER_CODE || userId).trim()
+  const email = String(row?.username || process.env.DILLIKING_EMAIL || '').trim()
   const password = row?.password
     ? safeDecrypt(row.password)
-    : String(process.env.ICL_PASSWORD || '').trim()
+    : String(process.env.DILLIKING_PASSWORD || '').trim()
 
-  if (!apiBase.startsWith('https://')) throw new Error('ICL API base must use HTTPS')
-  if (!userId || !password || !customerCode) {
-    throw new Error('ICL User ID, password and customer code are not configured')
-  }
-  return { apiBase, userId, password, customerCode }
-}
-
-const getProviderMessage = (data: IclResponse, fallback: string) => {
-  const response = data?.Response
-  const descriptions = Array.isArray(response?.Error)
-    ? response.Error.map((item) => String(item?.Description || '').trim()).filter(Boolean)
-    : []
-  return descriptions.join('; ') || response?.APIError || response?.APIStatus || fallback
+  if (!apiBase.startsWith('https://')) throw new Error('DilliKing API base must use HTTPS')
+  if (!email || !password) throw new Error('DilliKing email and password are not configured')
+  return { apiBase, email, password }
 }
 
 const errorMessage = (error: unknown, fallback: string) => {
   const axiosError = error as AxiosError<any>
-  const providerData = axiosError.response?.data as IclResponse | undefined
-  return providerData
-    ? getProviderMessage(providerData, axiosError.message || fallback)
-    : axiosError.message || fallback
-}
-
-const isAuthorizationFailure = (data: IclResponse) => {
-  const message = getProviderMessage(data, '').toLowerCase()
   return (
-    message.includes('not authorized') ||
-    message.includes('unauthorized') ||
-    message.includes('invalid credential') ||
-    message.includes('invalid user') ||
-    message.includes('invalid password')
+    axiosError.response?.data?.message ||
+    axiosError.response?.data?.error ||
+    axiosError.message ||
+    fallback
   )
 }
 
 export class DilliKingService {
-  private async postAwb(payload: Record<string, any>) {
+  private async login(force = false) {
+    if (!force && cachedToken && Date.now() - cachedTokenAt < TOKEN_CACHE_MS) return cachedToken
+
     const credentials = await getCredentials()
-    const requestBody = {
-      ...payload,
-      UserId: credentials.userId,
-      Password: credentials.password,
-      CustomerCode: credentials.customerCode,
-    }
+    const body = new URLSearchParams({
+      email: credentials.email,
+      password: credentials.password,
+    })
 
     try {
-      const response = await axios.post<IclResponse>(
-        `${credentials.apiBase}${AWB_PATH}`,
-        requestBody,
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 60000,
-          maxBodyLength: 25 * 1024 * 1024,
-        },
-      )
-      return response.data
+      const response = await axios.post(`${credentials.apiBase}/auth/token`, body.toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 20000,
+      })
+      const token = String(response.data?.data?.token || '').trim()
+      if (response.data?.status !== true || !token) {
+        throw new Error(response.data?.message || 'DilliKing login did not return a token')
+      }
+      cachedToken = token
+      cachedTokenAt = Date.now()
+      return token
     } catch (error) {
-      throw new Error(errorMessage(error, 'ICL International request failed'))
+      throw new Error(errorMessage(error, 'DilliKing login failed'))
     }
   }
 
-  /** ICL has no documented login endpoint. This incomplete request cannot create an AWB. */
-  async testConnection() {
-    const data = await this.postAwb({})
-    if (isAuthorizationFailure(data)) {
-      throw new Error(getProviderMessage(data, 'ICL API credentials were rejected'))
-    }
+  private async authorizedRequest<T>(request: (apiBase: string, token: string) => Promise<T>) {
     const credentials = await getCredentials()
-    return {
-      connected: true,
-      apiBase: credentials.apiBase,
-      userId: credentials.userId,
-      customerCode: credentials.customerCode,
-      check: 'Credentials accepted; no shipment was created',
+    let token = await this.login()
+    try {
+      return await request(credentials.apiBase, token)
+    } catch (error) {
+      if ((error as AxiosError)?.response?.status !== 401) throw error
+      token = await this.login(true)
+      return request(credentials.apiBase, token)
     }
+  }
+
+  async testConnection() {
+    await this.login(true)
+    const credentials = await getCredentials()
+    return { connected: true, apiBase: credentials.apiBase, email: credentials.email }
   }
 
   async createAwb(payload: Record<string, any>) {
-    const required = [
-      'CustomerRefNo', 'OriginName', 'DestinationName', 'ShipperName', 'ShipperAdd1',
-      'ShipperCity', 'ShipperState', 'ShipperPin', 'ConsigneeName', 'ConsigneeAdd1',
-      'ConsigneeCity', 'ConsigneeState', 'ConsigneePin', 'VendorName', 'ServiceName',
-      'ProductCode', 'Pieces', 'Weight', 'Content', 'Currency', 'ShipmentValue',
-    ]
-    const missing = required.filter((field) => !String(payload?.[field] ?? '').trim())
-    if (missing.length) throw new Error(`Missing required ICL fields: ${missing.join(', ')}`)
-    if (!Array.isArray(payload?.Dimensions) || payload.Dimensions.length === 0) {
-      throw new Error('At least one Dimensions entry is required')
+    if (!payload?.destination_country || !payload?.service) {
+      throw new Error('destination_country and service are required')
+    }
+    if (!payload?.shipper || !payload?.consignee || !Array.isArray(payload?.boxes) || !Array.isArray(payload?.items)) {
+      throw new Error('shipper, consignee, boxes and items are required')
     }
 
-    // Credentials always come from encrypted server storage, never from the browser.
-    const { UserId: _userId, Password: _password, CustomerCode: _customerCode, ...booking } = payload
-    const data = await this.postAwb(booking)
-    const response = data?.Response
-    if (response?.Status?.toLowerCase() !== 'success' || !String(response?.AWBNo || '').trim()) {
-      throw new Error(getProviderMessage(data, 'ICL AWB creation failed'))
+    try {
+      const response: any = await this.authorizedRequest((apiBase, token) =>
+        axios.post(`${apiBase}/shipment/awb`, payload, {
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          timeout: 60000,
+          maxBodyLength: 25 * 1024 * 1024,
+        }),
+      )
+      if (response.data?.status !== true) {
+        throw new Error(response.data?.message || 'DilliKing AWB creation failed')
+      }
+      return response.data
+    } catch (error) {
+      throw new Error(errorMessage(error, 'DilliKing AWB creation failed'))
     }
-    return data
   }
 
-  async track(_airwayBill: string) {
-    throw new Error('Tracking endpoint is not included in the supplied ICL API documentation')
+  async track(airwayBill: string) {
+    const normalized = String(airwayBill || '').trim()
+    if (!normalized) throw new Error('airway_bill is required')
+    try {
+      const response: any = await this.authorizedRequest((apiBase, token) =>
+        axios.get(`${apiBase}/tracking`, {
+          params: { airway_bill: normalized },
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 20000,
+        }),
+      )
+      return response.data
+    } catch (error) {
+      throw new Error(errorMessage(error, 'DilliKing tracking failed'))
+    }
   }
 }
 
-// Compatibility with the existing controller import; ICL uses no token cache.
-export const clearDilliKingTokenCache = () => undefined
+export const clearDilliKingTokenCache = () => {
+  cachedToken = ''
+  cachedTokenAt = 0
+}

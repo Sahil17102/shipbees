@@ -502,6 +502,7 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
           'delhivery',
           'velocity',
           'dilliking',
+          'icl',
         ]),
       )
 
@@ -574,6 +575,13 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
       amazon: buildAmazonCredentialResponse(),
       dilliking: {
         provider: 'dilliking',
+        apiBase: 'https://api.dilliking.com',
+        email: '',
+        hasPassword: false,
+        configured: false,
+      },
+      icl: {
+        provider: 'icl',
         apiBase: 'https://cloud.iclinternational.in',
         userId: '',
         customerCode: '',
@@ -705,10 +713,19 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
       } else if (provider === AMAZON_CREDENTIALS_PROVIDER) {
         acc.amazon = buildAmazonCredentialResponse(row)
       } else if (provider === 'dilliking') {
-        const userId = String(row.username || '').trim()
-        const customerCode = String(row.clientId || '').trim()
+        const email = String(row.username || '').trim()
         acc.dilliking = {
           provider: 'dilliking',
+          apiBase: row.apiBase || 'https://api.dilliking.com',
+          email,
+          hasPassword: Boolean(String(row.password || '').trim()),
+          configured: Boolean(email && String(row.password || '').trim()),
+        }
+      } else if (provider === 'icl') {
+        const userId = String(row.username || '').trim()
+        const customerCode = String(row.clientId || '').trim()
+        acc.icl = {
+          provider: 'icl',
           apiBase: 'https://cloud.iclinternational.in',
           userId,
           customerCode,
