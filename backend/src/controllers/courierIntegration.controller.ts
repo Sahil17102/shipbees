@@ -660,6 +660,70 @@ export const getToken = async (): Promise<string> => {
   }
 }
 
+const getInternationalCourierOptions = async (
+  body: Record<string, any>,
+  orderAmount: number | undefined,
+): Promise<any[] | null> => {
+  const deliveryCountry = String(
+    body.deliveryCountry ?? body.delivery_country ?? body.country ?? 'India',
+  ).trim() || 'India'
+  if (deliveryCountry.toLowerCase() === 'india') return null
+
+  const [[iclCourier], [credential]] = await Promise.all([
+    db.select({ id: couriers.id, name: couriers.name, isEnabled: couriers.isEnabled })
+      .from(couriers)
+      .where(and(eq(couriers.id, 9102), eq(couriers.serviceProvider, 'icl')))
+      .limit(1),
+    db.select({ metadata: courier_credentials.metadata })
+      .from(courier_credentials)
+      .where(eq(courier_credentials.provider, 'icl'))
+      .limit(1),
+  ])
+  const connection = readConnectionStatus(credential?.metadata)
+  if (!iclCourier?.isEnabled || !connection.connected) return []
+
+  const rate = await getInternationalRateQuote(deliveryCountry, 'ICL International')
+  if (!rate) return []
+
+  const rawWeight = Number(body.weight || 0)
+  const weightKg = Math.max(0.001, rawWeight > 50 ? rawWeight / 1000 : rawWeight)
+  const excessKg = Math.max(0, weightKg - Number(rate.baseWeightKg || 0.5))
+  const billedExcessKg = Math.ceil(excessKg * 2) / 2
+  const freight = Number(rate.baseRate) + billedExcessKg * Number(rate.additionalRatePerKg)
+  const fuel = freight * (Number(rate.fuelSurchargePercent) / 100)
+  const insurance = Number(orderAmount || 0) * (Number(rate.insurancePercent) / 100)
+  const preTax = freight + fuel + Number(rate.handlingFee) + Number(rate.customsClearanceFee) + insurance
+  const tax = preTax * (Number(rate.taxPercent) / 100)
+  const total = Math.round((preTax + tax) * 100) / 100
+  const prepaidOnly = String(body.payment_type || '').toLowerCase() !== 'cod'
+
+  return [{
+    id: 9102,
+    courier_id: 9102,
+    name: 'ICL International',
+    displayName: `${rate.serviceType} · ${rate.countryName}`,
+    courier_option_key: `9102__icl__${rate.id}`,
+    integration_type: 'icl',
+    serviceProvider: 'icl',
+    edd: '5-10 Days',
+    cod: false,
+    prepaid: true,
+    booking_available: prepaidOnly,
+    can_book: prepaidOnly,
+    booking_blocked_reason: prepaidOnly ? null : 'ICL international shipments must be prepaid.',
+    rate: total,
+    freight_charges: total,
+    other_charges: 0,
+    cod_charges: 0,
+    courier_cost_estimate: total,
+    total_charges: total,
+    wallet_debit_amount: total,
+    chargeable_weight: weightKg,
+    localRates: { forward: { rate: total, chargeable_weight: weightKg } },
+    international_rate: rate,
+  }]
+}
+
 export const fetchAvailableCouriers = async (req: Request, res: Response) => {
   try {
     const {
@@ -689,69 +753,8 @@ export const fetchAvailableCouriers = async (req: Request, res: Response) => {
       })
     }
 
-    const deliveryCountry = String(
-      req.body.deliveryCountry ?? req.body.delivery_country ?? req.body.country ?? 'India',
-    ).trim() || 'India'
-    const isInternational = deliveryCountry.toLowerCase() !== 'india'
-    if (isInternational) {
-      const [[iclCourier], [credential]] = await Promise.all([
-        db.select({ id: couriers.id, name: couriers.name, isEnabled: couriers.isEnabled })
-          .from(couriers)
-          .where(and(eq(couriers.id, 9102), eq(couriers.serviceProvider, 'icl')))
-          .limit(1),
-        db.select({ metadata: courier_credentials.metadata })
-          .from(courier_credentials)
-          .where(eq(courier_credentials.provider, 'icl'))
-          .limit(1),
-      ])
-      const connection = readConnectionStatus(credential?.metadata)
-      if (!iclCourier?.isEnabled || !connection.connected) {
-        return res.json({ success: true, data: [] })
-      }
-
-      const rate = await getInternationalRateQuote(deliveryCountry, 'ICL International')
-      if (!rate) return res.json({ success: true, data: [] })
-
-      const weightKg = Math.max(0.001, Number(weight || 0) > 50 ? Number(weight) / 1000 : Number(weight))
-      const excessKg = Math.max(0, weightKg - Number(rate.baseWeightKg || 0.5))
-      const billedExcessKg = Math.ceil(excessKg * 2) / 2
-      const freight = Number(rate.baseRate) + billedExcessKg * Number(rate.additionalRatePerKg)
-      const fuel = freight * (Number(rate.fuelSurchargePercent) / 100)
-      const insurance = Number(orderAmountResult.value || 0) * (Number(rate.insurancePercent) / 100)
-      const preTax = freight + fuel + Number(rate.handlingFee) + Number(rate.customsClearanceFee) + insurance
-      const tax = preTax * (Number(rate.taxPercent) / 100)
-      const total = Math.round((preTax + tax) * 100) / 100
-      const prepaidOnly = String(payment_type || '').toLowerCase() !== 'cod'
-
-      return res.json({
-        success: true,
-        data: [{
-          id: 9102,
-          courier_id: 9102,
-          name: 'ICL International',
-          displayName: `${rate.serviceType} · ${rate.countryName}`,
-          courier_option_key: `9102__icl__${rate.id}`,
-          integration_type: 'icl',
-          serviceProvider: 'icl',
-          edd: '5-10 Days',
-          cod: false,
-          prepaid: true,
-          booking_available: prepaidOnly,
-          can_book: prepaidOnly,
-          booking_blocked_reason: prepaidOnly ? null : 'ICL international shipments must be prepaid.',
-          rate: total,
-          freight_charges: total,
-          other_charges: 0,
-          cod_charges: 0,
-          courier_cost_estimate: total,
-          total_charges: total,
-          wallet_debit_amount: total,
-          chargeable_weight: weightKg,
-          localRates: { forward: { rate: total, chargeable_weight: weightKg } },
-          international_rate: rate,
-        }],
-      })
-    }
+    const internationalCouriers = await getInternationalCourierOptions(req.body, orderAmountResult.value)
+    if (internationalCouriers) return res.json({ success: true, data: internationalCouriers })
 
     const serviceabilityOptions = buildServiceabilityOptions(req.body)
 
@@ -906,6 +909,9 @@ export const getAvailableCouriersForUserFromBody = async (body: any, userId: str
   if (orderAmountResult.invalid) {
     throw new Error('order_amount must be a non-negative number')
   }
+
+  const internationalCouriers = await getInternationalCourierOptions(body, orderAmountResult.value)
+  if (internationalCouriers) return internationalCouriers
 
   // Route to appropriate function based on shipment_type
   const serviceParams = {
