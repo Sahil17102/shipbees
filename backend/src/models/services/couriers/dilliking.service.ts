@@ -38,7 +38,9 @@ const getCredentials = async (): Promise<DilliKingCredentials> => {
     .where(eq(courier_credentials.provider, PROVIDER))
     .limit(1)
 
-  const apiBase = String(row?.apiBase || process.env.DILLIKING_API_BASE || DEFAULT_API_BASE)
+  const storedApiBase = String(row?.apiBase || '').trim()
+  const safeStoredApiBase = storedApiBase.includes('iclinternational.in') ? '' : storedApiBase
+  const apiBase = String(safeStoredApiBase || process.env.DILLIKING_API_BASE || DEFAULT_API_BASE)
     .trim()
     .replace(/\/+$/, '')
   const email = String(row?.username || process.env.DILLIKING_EMAIL || '').trim()

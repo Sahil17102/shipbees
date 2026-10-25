@@ -714,9 +714,12 @@ export const getCourierCredentialsController = async (req: Request, res: Respons
         acc.amazon = buildAmazonCredentialResponse(row)
       } else if (provider === 'dilliking') {
         const email = String(row.username || '').trim()
+        const savedApiBase = String(row.apiBase || '').trim()
         acc.dilliking = {
           provider: 'dilliking',
-          apiBase: row.apiBase || 'https://api.dilliking.com',
+          apiBase: savedApiBase.includes('iclinternational.in')
+            ? 'https://api.dilliking.com'
+            : savedApiBase || 'https://api.dilliking.com',
           email,
           hasPassword: Boolean(String(row.password || '').trim()),
           configured: Boolean(email && String(row.password || '').trim()),
