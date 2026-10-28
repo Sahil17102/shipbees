@@ -49,6 +49,7 @@ import ShipmentTrackingModal from 'components/Orders/ShipmentTrackingModal'
 import CopyableAwb from 'components/Orders/CopyableAwb'
 import { GenericTable } from 'views/Dashboard/Tables/components/GenericTable'
 import OrderDetailsModal from './OrderDetailsModal'
+import { getAdminCourierDisplay } from 'utils/courierDisplay'
 
 const OrdersTable = ({
   orders,
@@ -532,7 +533,10 @@ const OrdersTable = ({
     ),
     courier_partner: (value, row) => {
       const source = String(row?.source || row?.integration_type || '').trim().toLowerCase()
-      const courier = String(value || '').trim()
+      const { courierName: courier, bookingProvider } = getAdminCourierDisplay({
+        ...row,
+        courier_partner: value,
+      })
       if (!courier) return '—'
       if (
         (source === 'shopify' || source === 'woocommerce') &&
@@ -545,6 +549,14 @@ const OrdersTable = ({
           <Stack spacing={1} align="flex-start">
             <Text fontSize="sm">{courier}</Text>
             <Badge colorScheme="orange" fontSize="xs">Manual workflow</Badge>
+          </Stack>
+        )
+      }
+      if (bookingProvider) {
+        return (
+          <Stack spacing={1} align="flex-start">
+            <Text fontSize="sm">{courier}</Text>
+            <Badge colorScheme="blue" fontSize="xs">via ICL</Badge>
           </Stack>
         )
       }

@@ -37,6 +37,12 @@ export const getOrderCourierDisplayName = (order: any) => {
   const courier = String(order.courier_partner ?? '').trim()
   if (!courier) return ''
 
+  // ICL is the booking platform; Federal Express is the actual courier.
+  // Keep legacy ICL orders readable after the actual courier started being persisted.
+  if (trimLower(order.integration_type) === 'icl' && trimLower(courier).includes('icl')) {
+    return 'Federal Express'
+  }
+
   const source = getOrderSourceKey(order)
   if ((source === 'shopify' || source === 'woocommerce') && trimLower(courier) === source) {
     return ''

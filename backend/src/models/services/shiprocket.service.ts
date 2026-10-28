@@ -49,6 +49,7 @@ import { parseDelhiveryTrackingTimestamp } from '../../utils/delhiveryTrackingTi
 import { getBucketName } from '../../utils/functions'
 import { normalizeShipmentDateInput, parseShipmentDate } from '../../utils/shipmentDate'
 import { splitIclAddress } from '../../utils/iclPayload'
+import { getIclVendorCode, getIclVendorDisplayName } from '../../utils/iclVendor'
 import { db } from '../client'
 import { b2b_orders } from '../schema/b2bOrders'
 import { b2c_orders } from '../schema/b2cOrders'
@@ -7760,6 +7761,9 @@ export const createB2CShipmentService = async (
     provider_request_id?: string
     provider_service?: string
     provider_mode?: string
+    booking_provider?: string
+    underlying_courier?: string
+    vendor_code?: string
     provider_flow?: string
     provider_manifest_id?: string | null
     provider_manifest_status?: string
@@ -8794,6 +8798,8 @@ export const createB2CShipmentService = async (
         params.consignee?.address,
         params.consignee?.address_2 || params.consignee?.locality,
       )
+      const iclVendorCode = getIclVendorCode()
+      const iclVendorName = getIclVendorDisplayName(iclVendorCode)
       const iclPayload = {
         CustomerRefNo: params.order_number,
         OriginName: 'IN',
@@ -8823,7 +8829,7 @@ export const createB2CShipmentService = async (
         ConsigneeDocumentType: '',
         ConsigneeDocumentNumber: '',
         Instruction: 'International shipment booked through ShipBees',
-        VendorName: String(process.env.ICL_VENDOR_NAME || 'FDX').trim(),
+        VendorName: iclVendorCode,
         ServiceName: serviceName,
         ProductCode: 'SPX',
         Dox_Spx: 'SPX',
@@ -8866,7 +8872,7 @@ export const createB2CShipmentService = async (
       shipmentMeta = {
         shipment_id: iclAwb,
         awb_number: iclAwb,
-        courier_name: 'ICL International',
+        courier_name: iclVendorName,
         courier_id: params.courier_id ? Number(params.courier_id) : 9102,
         label: iclResponse?.Label || iclResponse?.LabelUrl || undefined,
         manifest: undefined,
@@ -8876,6 +8882,9 @@ export const createB2CShipmentService = async (
         provider_request_id: params.order_number,
         provider_service: 'INTERNATIONAL PRIORITY',
         provider_mode: 'air',
+        booking_provider: 'ICL International',
+        underlying_courier: iclVendorName,
+        vendor_code: iclVendorCode,
       }
     } else if (integrationType === 'amazon') {
       console.log('Using Amazon Shipping API...')

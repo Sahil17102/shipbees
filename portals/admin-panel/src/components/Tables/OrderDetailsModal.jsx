@@ -35,6 +35,7 @@ import {
   FiCopy,
   FiExternalLink,
 } from 'react-icons/fi'
+import { getAdminCourierDisplay } from 'utils/courierDisplay'
 
 const OrderDetailsModal = ({ isOpen, onClose, order }) => {
   const bgColor = useColorModeValue('white', 'gray.800')
@@ -72,6 +73,7 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
     : null
   const formatStatusText = (status) => (status ? status.replace(/_/g, ' ').toUpperCase() : 'N/A')
   const courierRawStatus = safeOrder.provider_last_status || safeOrder.delivery_message || null
+  const courierDisplay = getAdminCourierDisplay(safeOrder)
 
   if (!order) return null
 
@@ -193,7 +195,10 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
                 </Text>
                 <CopyableAwb awb={order.awb_number} />
               </Flex>
-              <InfoRow label="Courier Partner" value={order.courier_partner} />
+              <InfoRow label="Courier Partner" value={courierDisplay.courierName || 'N/A'} />
+              {courierDisplay.bookingProvider && (
+                <InfoRow label="Booking Provider" value={courierDisplay.bookingProvider} />
+              )}
               <InfoRow label="Internal Status" value={formatStatusText(order.order_status)} />
               <InfoRow label="Courier Raw Status" value={courierRawStatus || 'N/A'} />
               <InfoRow label="Shipment ID" value={order.shipment_id} />

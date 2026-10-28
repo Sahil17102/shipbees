@@ -1015,7 +1015,11 @@ export const SelectCourierForm = ({ shipment_type }: { shipment_type: 'b2b' | 'b
                             )}
                           </Stack>
                           <Typography sx={{ mt: 0.2, fontSize: 12, color: TEXT_SECONDARY }}>
-                            {courier?.edd ? `Estimated delivery: ${courier.edd}` : 'EDD unavailable'}
+                            {courier?.service_label
+                              ? `${courier.service_label} · ${courier?.edd ? `Estimated delivery: ${courier.edd}` : 'EDD unavailable'}`
+                              : courier?.edd
+                                ? `Estimated delivery: ${courier.edd}`
+                                : 'EDD unavailable'}
                           </Typography>
                           {bookingUnavailable && (
                             <Typography sx={{ mt: 0.25, fontSize: 12, color: '#B54708' }}>

@@ -36,6 +36,7 @@ import { calculateGstBreakup } from '../utils/gst'
 import { extractOrderAmountFromBody } from '../utils/orderAmount'
 import { getInternationalRateQuote } from './admin/internationalRates.controller'
 import { readConnectionStatus } from '../models/services/internationalCourierCatalog.service'
+import { getIclVendorCode, getIclVendorDisplayName } from '../utils/iclVendor'
 import {
   getManualB2BRateOptions,
   getManualB2CRateOptions,
@@ -696,12 +697,17 @@ const getInternationalCourierOptions = async (
   const tax = preTax * (Number(rate.taxPercent) / 100)
   const total = Math.round((preTax + tax) * 100) / 100
   const prepaidOnly = String(body.payment_type || '').toLowerCase() !== 'cod'
+  const vendorCode = getIclVendorCode()
+  const vendorName = getIclVendorDisplayName(vendorCode)
 
   return [{
     id: 9102,
     courier_id: 9102,
-    name: 'ICL International',
-    displayName: `${rate.serviceType} · ${rate.countryName}`,
+    name: vendorName,
+    displayName: vendorName,
+    service_label: `${rate.serviceType} · ${rate.countryName}`,
+    booking_provider: 'ICL International',
+    vendor_code: vendorCode,
     courier_option_key: `9102__icl__${rate.id}`,
     integration_type: 'icl',
     serviceProvider: 'icl',
