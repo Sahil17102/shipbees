@@ -62,7 +62,12 @@ export default function Layout() {
     <Box
       sx={{
         display: 'flex',
-        minHeight: '100vh',
+        height: '100vh',
+        minHeight: 0,
+        overflow: 'hidden',
+        '@supports (height: 100dvh)': {
+          height: '100dvh',
+        },
         backgroundColor: '#F7F8FC',
         backgroundImage:
           'linear-gradient(rgba(107,80,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(107,80,246,0.045) 1px, transparent 1px)',
@@ -102,7 +107,12 @@ export default function Layout() {
         sx={{
           flex: 1,
           minWidth: 0,
-          minHeight: '100vh',
+          minHeight: 0,
+          height: '100vh',
+          overflow: 'hidden',
+          '@supports (height: 100dvh)': {
+            height: '100dvh',
+          },
           p: 0,
           gap: 0,
           scrollbarGutter: 'stable',
@@ -139,6 +149,8 @@ export default function Layout() {
             flex: 1,
             minHeight: 0,
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            scrollbarGutter: 'stable',
             p: 0,
             backgroundColor: 'transparent',
           }}

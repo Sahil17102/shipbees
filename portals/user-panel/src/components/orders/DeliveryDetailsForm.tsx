@@ -14,6 +14,18 @@ type FormType = 'b2b' | 'b2c'
 const getExactLocation = (rows: ServiceabilityLocation[] = [], pincode: string) =>
   rows.find((row) => String(row?.pincode || '') === pincode) ?? rows[0]
 
+const addressAutoComplete: Partial<Record<string, string>> = {
+  buyerName: 'name',
+  buyerPhone: 'tel',
+  buyerEmail: 'email',
+  pincode: 'postal-code',
+  city: 'address-level2',
+  state: 'address-level1',
+  address: 'street-address',
+  addressLocality: 'address-line2',
+  companyName: 'organization',
+}
+
 const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
   const {
     control,
@@ -117,6 +129,7 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
               required
               size="small"
               label="Country"
+              autoComplete="country-name"
               value={field.value || 'India'}
               error={!!getFieldError('country')}
               helperText={getFieldError('country')}
@@ -136,7 +149,6 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
         />
       </Grid>
       {fields.map((fieldItem) => {
-        const isNonEditable = isIndia && (fieldItem.name === 'city' || fieldItem.name === 'state')
         const showLoader = fieldItem.name === 'pincode' ? pinFetching : false
         const isOptionalField =
           fieldItem.name === 'buyerEmail' ||
@@ -177,17 +189,24 @@ const DeliveryDetailsForm = ({ type = 'b2c' }: { type?: FormType }) => {
                   {...field}
                   onChange={(event) => {
                     if (fieldItem.name === 'pincode') {
-                      field.onChange(event.target.value.toUpperCase().replace(/[^A-Z0-9 -]/g, '').slice(0, isIndia ? 6 : 12))
+                      field.onChange(
+                        isIndia
+                          ? normalizePincode(event.target.value)
+                          : event.target.value
+                              .toUpperCase()
+                              .replace(/[^A-Z0-9 -]/g, '')
+                              .slice(0, 12),
+                      )
                       return
                     }
                     field.onChange(event)
                   }}
+                  autoComplete={addressAutoComplete[fieldItem.name]}
                   multiline={isAddressField}
                   rows={isAddressField ? 1 : undefined}
                   maxLength={isAddressField ? 200 : undefined}
                   inputMode={fieldItem.name === 'pincode' ? (isIndia ? 'numeric' : 'text') : undefined}
                   placeholder={fieldItem.name === 'pincode' && !isIndia ? 'e.g. A0A 1A1' : undefined}
-                  disabled={isNonEditable}
                   error={!!getFieldError(fieldItem.name)}
                   helperText={getFieldError(fieldItem.name)}
                   postfix={showLoader ? <CircularProgress size={16} /> : null}
